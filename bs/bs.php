@@ -8,6 +8,8 @@ class bs{
 	//sql----------------------------------------------------------------------
 	static function SQL(){
 	}
+	//session-------------------------------------------------------------------
+	
 	//util----------------------------------------------------------------------
 	static function tmpl( $val, $arr ){
 		if( gettype( $arr ) == 'array' ){
@@ -61,9 +63,9 @@ class bs{
 		}
 		return $xml;
 	}	
-	static function apply( $method, $arg ){
+	static function apply( $method ){
 		$r = null; $method = '$r = '.$method.'(';
-		for( $i = 0, $j = count( $arg ) ; $i < $j ; $i++ ) $method .= '$arg['.$i.']'.( $i < $j - 1 ? ',' : ');' );
+		for( $i = 1, $j = count( func_num_args() ), $arg = func_get_args() ; $i < $j ; $i++ ) $method .= '$arg['.$i.']'.( $i < $j - 1 ? ',' : ');' );
 		eval( $method );
 		return $r;
 	}
@@ -96,12 +98,16 @@ class bs{
 		return $t0 === FALSE ? curl_error( $t0 ) : $t1;
 	}
 	static private $outBuffer = '';
-	static function out(){
+	static function buffer(){
 		if( ( $j = func_num_args() ) > 0 ){
 			for( $i = 0, $arg = func_get_args() ; $i < $j ; $i++ ) self::$outBuffer .= $arg[$i];
 		}else{
 			echo( self::$outBuffer );self::$outBuffer = '';
 		}
+	}
+	static function out(){
+		for( $t0 = '', $i = 0, $j = func_num_args(), $arg = func_get_args() ; $i < $j ; $i++ ) $t0 .= $arg[$i];
+		echo( $t0 );
 	}
 	static function end( $val = null ){self::dbClose();exit($val);}
 	static function script( $val ){echo('<script>'.$val.'</script>');}
@@ -294,8 +300,7 @@ class bs{
 			return is_dir( $path );
 		}	
 	}
-	
-	static function fileRoot( $file ){
+	static function fileR( $file ){
 		$root = self::root();
 		if( substr( $file, 0, 5 ) != substr( $root, 0, 5 ) ) $file = $root.( $file[0] == '/' ? '' : '/' ).$file;
 		if( !( $file = fopen( $file, "r" ) ) ) die( "could not open file" );
@@ -303,7 +308,7 @@ class bs{
 		while( $t1 = fread( $file, 4096 ) ) $t0 .= $t1;
 		return $t0;
 	}
-	static public function fileW( $path, $filename, $contents ){
+	static public function fileW( $file, $contents ){
 		$t0 = self::root().$path;
 		if( substr( $path, 0, 1) == '/' ) $path = substr( $path, 1 );
 		if( substr( $path, -1 ) != '/' ) $path .= '/';
