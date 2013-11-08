@@ -1,12 +1,109 @@
 <?php
 class bs{
 	//db----------------------------------------------------------------------
-	static function DB(){
+	static private $db;
+	static private $dbDefault;
+	static function DB( $sel ){
+		if( !self::$db ){
+			self::$db = array();
+			self::$dbDefault = $sel;
+		}
+		if( !@self::$db[$sel] ) $d = self::$db[$sel] = array();
+		else $d = self::$db[$sel];
+		$i = 1; $j = func_num_args(); $arg = func_get_args() ; 
+		while( $i < $j ){
+			$k = $arg[$i++];
+			$v = $i < $j ? $arg[$i++] : NULL;
+			switch( $k ){
+			case'url':case'id':case'pw':case'db': if( $v ) $d[$k] = $v; $v = $d[$k]; break;
+			case'conn': $v = $d['conn']; break;
+			case'.close':
+				if( $d['conn'] ) mysql_close( $d['conn'] );
+				$d['conn'] = false;
+				return true;
+			case'.open':
+				if( !$d['conn'] ){
+					$d['conn'] = mysql_connect( $d['url'], $d['id'], $d['pw'] );
+					mysql_select_db( $d['db'], $d['conn'] );
+					$v = $v || 'utf8';
+					mysql_query('set session character_set_connection='.$v.';');
+					mysql_query('set session character_set_results='.$v.';');
+					mysql_query('set session character_set_client='.$v.';');
+				}
+				return $d['conn'];
+			case'.ex':
+				if( !$d['conn'] ) self::DB( $sel, '.open' );
+				return mysql_query( $v, $d['conn'] );
+			case'.rs':
+				if( !$d['conn'] ) self::DB( $sel, '.open' );
+				$r = mysql_query(  $v, $d['conn'] );
+				if( !$r || !mysql_num_rows( $r ) ) return false;
+				$rs = array();
+				while( $row = mysql_fetch_row( $r ) ) array_push( $rs, $row );
+				return $rs;
+			case'.raw':
+				if( !$d['conn'] ) self::DB( $sel, '.open' );
+				$r = mysql_query(  $v, $d['conn'] );
+				if( !$r || !mysql_num_rows( $r ) ) return false;
+				return $r;
+			case'.record':
+				if( !$d['conn'] ) self::DB( $sel, '.open' );
+				$r = mysql_query(  $v, $d['conn'] );
+				if( !$r || !mysql_num_rows( $r ) ) return false;
+				mysql_data_seek( $r, $arg[$i] );
+				return mysql_fetch_row( $r );
+			}
+			return $v;
+		}
 	}
 	static function dbClose(){
+		foreach( self::$db as $k => $v ){
+			if( $v['conn'] ){
+				mysql_close( $d['conn'] );
+				$d['conn'] = false;
+			}
+		}
 	}
 	//sql----------------------------------------------------------------------
-	static function SQL(){
+	static private $sql = array();
+	static private function isSelect( $q ){return strtolower( substr( $q, 0, 6 ) ) == 'select';}	
+	static function SQL( $sel ){
+		if( !@self::$sql[$sel] ) $s = self::$sql[$sel] = array();
+		else $s = self::$sql[$sel];
+		$i = 1; $j = func_num_args(); $arg = func_get_args() ; 
+		while( $i < $j ){
+			$k = $arg[$i++];
+			$v = $i < $j ? $arg[$i++] : NULL;
+			switch( $k ){
+			case'query':case'q': if( $v ) $s['q'] = $v; $v = $s['q']; break;
+			case'db':case'type':case'record':case'field': if( $v ) $s[$k] = $v; $v = $s[$k]; break;
+			case'.run':
+				$r = array();
+				$sql = $s['q'];
+				$db = $s['db'] || self::$dbDefault;
+				//todo:$v filtering
+				if( gettype( $sql ) == 'array' ){
+					//transaction
+				}else{
+					if( $v ) $sql = bs::tmpl( $sql, $v );
+					
+					switch( $s['type'] ){
+					case'raw':
+						if( isSelect( $sql ) ) return bs::DB( $db, '.raw', $sql );
+						else die();
+					case'record':
+						if( isSelect( $sql ) ) return bs::DB( $db, '.record', $sql, $s['record']  );
+						else die();
+					case'field':
+						if( isSelect( $sql ) ){
+							$r = bs::DB( $db, '.record', $sql, $s['record']  );
+							return $r[$s['field']];
+						}else die();
+					}
+					return bs::DB( $db, '.rs', $sql );
+				}
+			}
+		}
 	}
 	//session-------------------------------------------------------------------
 	
@@ -25,6 +122,8 @@ class bs{
 		}
 		return $val;
 	}
+	static function limit( $page, $rpp ){return ( $page - 1 ) * $rpp;}
+	static function tp( $total, $rpp ){return (int)( ( $total - 1 ) / $rpp ) + 1;}
 	static function split( $val, $sep ){return explode( $sep, $val );}
 	static function replace( $val, $search, $replace = '' ){return str_replace( $search, $replace, $val );}
 	static function stripBr( $val ){return preg_replace( '/[\s]*[\s]/', ' ', preg_replace( '/(<br \/\>)|(<br>)/', ' ', $val ) );}
