@@ -17,7 +17,7 @@ class bs{
 		}
 		$method = DEFAULT_METHOD;
 		if( $uri == '/' || empty($uri) ){
-			if( file_exists( CONTROLLER.DEFAULT_CONTROLLER ) ){
+			if( file_exists(CONTROLLER.DEFAULT_CONTROLLER) ){
 				require_once CONTROLLER.DEFAULT_CONTROLLER;
 				$uri = array();
 			}
@@ -35,7 +35,7 @@ class bs{
 			if( $j - $i > 0 ) $method = false;
 		}
 		if( class_exists(CONTROLLER_CLASS) ){
-			require_once CONFIG;
+			if( file_exists(CONFIG) ) require_once CONFIG;
 			$controller = CONTROLLER_CLASS;
 			$controller = new $controller();
 			if( !$method ){
