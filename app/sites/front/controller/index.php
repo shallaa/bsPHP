@@ -4,16 +4,9 @@ class Controller{
 	}
 	
 	private $url = 'http://www.bsidesoft.com/bs/bsPHP/index.php';
-	
-	private function assert( $v0, $v1 ){
-		return '<div style="color:#'.( $v0 === $v1 ? '090">OK' : '900">NO' ).'</div>';
-	}
-	private function subTitle($v){
-		bs::out( '<h2>'.$v.'</h2>' );
-	}
-	private function back(){
-		bs::out( '<br><div><a href="'.$this->url.'">Back</a></div>' );
-	}
+	private function subTitle($v){bs::out( '<h2>'.$v.'</h2>' );}
+	private function back(){bs::out( '<br><div><a href="'.$this->url.'">Back</a></div>' );}
+	private function assert( $v0, $v1 ){return '<div style="color:#'.( $v0 === $v1 ? '090">OK' : '900">NO' ).'</div>';}
 	
 	public function index(){
 		bs::out( 'TestList<br><br>',
@@ -32,7 +25,7 @@ class Controller{
 		$this->subTitle('파일삭제');
 		bs::file( 'test/testSet.txt', null );
 		$v0 = bs::file( 'test/testSet.txt' );
-		bs::out( 'test/testSet.txt : '.$v0, $this->assert( $v0, FALSE ) );
+		bs::out( 'test/testSet.txt : '.($v0 === FALSE ? '없음' : '존재'), $this->assert( $v0, FALSE ) );
 		
 		$this->subTitle('파일쓰기');
 		$contents = '안녕쓰기!';
