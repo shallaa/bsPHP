@@ -68,23 +68,31 @@ class bs{
 		$arg = func_get_args();
 		if( $arg[0] == '/' ) $arg = substr( $arg[0], 1 );
 		if( func_num_args() == 1 ){
-			$f = fopen( ROOT.$arg[0], "r" );
-			if( !$f ) err( 0, $arg[0] );
-			$t0 = '';
-			while( $t1 = fread( $f, 4096 ) ) $t0 .= $t1;
+			$path = ROOT.$arg[0];
+			if( file_exists($path) ){
+				$f = fopen( $path, "r" );
+				if( !$f ) err( 0, $arg[0] );
+				$t0 = '';
+				while( $t1 = fread( $f, 4096 ) ) $t0 .= $t1;
+			}else $t0 = FALSE;
 			return $t0;
 		}else{
 			for( $dir = explode( '/', $arg[0] ), $file = array_pop($dir), $path = ROOT, $i = 0, $j = count($dir) ; $i < $j ; ){
 				$path .= '/'.$dir[$i++];
 				if( !is_dir($path) ) mkdir($path);
 			}
-			$f = @fopen( $path.'/'.$file , "w+" );
-			if( !$f ) err( 1, $path.'/'.$file );
-			@flock( $f, LOCK_EX );
-				fwrite( $f, pack("CCC",0xef,0xbb,0xbf) );
-				fwrite( $f, $arg[1] );
-			@flock( $f, LOCK_UN );
-			@fclose($f);
+			$path .= '/'.$file;
+			if( $arg[1] === NULL ){
+				if( file_exists($path) ) unlink($path );
+			}else{
+				$f = @fopen( $path, "w+" );
+				if( !$f ) err( 1, $path );
+				@flock( $f, LOCK_EX );
+					//fwrite( $f, pack("CCC",0xef,0xbb,0xbf) );
+					fwrite( $f, $arg[1] );
+				@flock( $f, LOCK_UN );
+				@fclose($f);
+			}
 		}
 	}
 	//in,out
