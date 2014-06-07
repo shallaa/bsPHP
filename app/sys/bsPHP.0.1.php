@@ -100,6 +100,71 @@ class bs{
 		for( $t0 = '', $i = 0, $j = func_num_args(), $arg = func_get_args() ; $i < $j ; $i++ ) $t0 .= $arg[$i];
 		echo($t0);
 	}
+	//http----------------------------------------------------------------------
+	static private function param( $arg ){
+		/*
+		if( !$arg || ( $j = arg.length ) < 3 ) return '';
+		head.length = paramBody.length = 0, i = 2;
+		while( i < j ){
+			if( typeof( k = arg[i++] ) === 'string' && ( k = k.replace( trim, '' ) ).length !== 0 ){}else{err( 5005 );}
+			if( i < j ){
+				v = typeof( v = arg[i++] ) === 'string' ? v.replace( trim, '' ) : typeof v === 'number' || typeof v === 'boolean' ? v.toString() : typeof v === 'undefined' ? 'undefined' : typeof v === 'function' ? v.toString() : v === null ? 'null' : JSON.stringify(v);
+				k.charAt(0) === '@' ? ( k = k.substr(1).replace( trim, '' ) ).length === 0 ? err( 5006 ) : ( head[head.length] = k, head[head.length] = v ) : paramBody[paramBody.length] = encodeURIComponent(k) + '=' + encodeURIComponent(v);
+			}else m = encodeURIComponent( k );
+		}
+		return m || paramBody.join('&');
+		*/
+	}
+	static private function url( $url, $arg ){
+		/*
+		var t0 = url.replace( trim, '' ).split('#'), p = param(arg);
+		return t0[0] + ( t0[0].indexOf('?') > -1 ? '&' : '?' ) + 'bsNC=' + bs.rand( 1000, 9999 ) + ( p ? '&' + p : '' ) + ( t0[1] ? '#' + t0[1] : '' );
+		*/
+	}
+	static function get( $url ){
+		$t0 = curl_init();
+		curl_setopt( $t0, CURLOPT_HEADER, FALSE );
+		curl_setopt( $t0, CURLOPT_RETURNTRANSFER, TRUE );
+		curl_setopt( $t0, CURLOPT_SSL_VERIFYPEER, FALSE);     
+		curl_setopt( $t0, CURLOPT_SSL_VERIFYHOST, 2); 
+		curl_setopt( $t0, CURLOPT_URL, $url );
+		if( ( $j = func_num_args() ) > 1 ){
+			$i = 0; $t1 = func_get_args(); $url .= "?";
+			while( $i < $j ) $url .= $t1[$i++].'='.$t1[$i++].($i < $j - 1 ? '&' : '');
+		}
+		
+		$t1 = curl_exec( $t0 );
+		curl_close( $t0 );
+		return $t0 === FALSE ? curl_error( $t0 ) : $t1;
+	}
+	static function post( $url ){
+		$t0 = curl_init();
+		curl_setopt( $t0, CURLOPT_HEADER, FALSE );
+		curl_setopt( $t0, CURLOPT_RETURNTRANSFER, TRUE );
+		curl_setopt( $t0, CURLOPT_POST, TRUE );
+		curl_setopt( $t0, CURLOPT_URL, $url );
+		if( func_num_args() > 1 ) curl_setopt( $t0, CURLOPT_POSTFIELDS, array_shift( func_get_args() ) );
+		$t1 = curl_exec( $t0 );
+		curl_close( $t0 );
+		return $t0 === FALSE ? curl_error( $t0 ) : $t1;
+	}
+	static private $outBuffer = '';
+	static function buffer(){
+		if( ( $j = func_num_args() ) > 0 ){
+			for( $i = 0, $arg = func_get_args() ; $i < $j ; $i++ ) self::$outBuffer .= $arg[$i];
+		}else{
+			echo( self::$outBuffer );self::$outBuffer = '';
+		}
+	}
+	
+	static function http( $val ){
+		$arguments = func_get_args();
+		for( $i = 1, $j = func_num_args() ; $i < $j ; $i++ ) $val .= $arguments[$i];
+		echo( $val );
+	}
+	static function encode( $val ){return urldecode( trim( $val ) );}
+	static function decode( $val ){return urldecode( trim( $val ) );}
+	
 }
 bs::route();
 	/*
@@ -361,48 +426,7 @@ bs::route();
 	}
 	static function rand( $start, $end ){return mt_rand( $start, $end );}
 	static function len( $data, $add = 0 ){return gettype( $data ) == 'string' ? strlen( $data ) : count( $data ) + $add;}
-	//http----------------------------------------------------------------------
-	static function get( $url ){
-		$t0 = curl_init();
-		curl_setopt( $t0, CURLOPT_HEADER, FALSE );
-		curl_setopt( $t0, CURLOPT_RETURNTRANSFER, TRUE );
-		curl_setopt( $t0, CURLOPT_SSL_VERIFYPEER, FALSE);     
-		curl_setopt( $t0, CURLOPT_SSL_VERIFYHOST, 2); 
-		curl_setopt( $t0, CURLOPT_URL, $url );
-		if( ( $j = func_num_args() ) > 1 ){
-			$i = 0; $t1 = func_get_args(); $url .= "?";
-			while( $i < $j ) $url .= $t1[$i++].'='.$t1[$i++].($i < $j - 1 ? '&' : '');
-		}
-		
-		$t1 = curl_exec( $t0 );
-		curl_close( $t0 );
-		return $t0 === FALSE ? curl_error( $t0 ) : $t1;
-	}
-	static function post( $url ){
-		$t0 = curl_init();
-		curl_setopt( $t0, CURLOPT_HEADER, FALSE );
-		curl_setopt( $t0, CURLOPT_RETURNTRANSFER, TRUE );
-		curl_setopt( $t0, CURLOPT_POST, TRUE );
-		curl_setopt( $t0, CURLOPT_URL, $url );
-		if( func_num_args() > 1 ) curl_setopt( $t0, CURLOPT_POSTFIELDS, array_shift( func_get_args() ) );
-		$t1 = curl_exec( $t0 );
-		curl_close( $t0 );
-		return $t0 === FALSE ? curl_error( $t0 ) : $t1;
-	}
-	static private $outBuffer = '';
-	static function buffer(){
-		if( ( $j = func_num_args() ) > 0 ){
-			for( $i = 0, $arg = func_get_args() ; $i < $j ; $i++ ) self::$outBuffer .= $arg[$i];
-		}else{
-			echo( self::$outBuffer );self::$outBuffer = '';
-		}
-	}
 	
-	static function http( $val ){
-		$arguments = func_get_args();
-		for( $i = 1, $j = func_num_args() ; $i < $j ; $i++ ) $val .= $arguments[$i];
-		echo( $val );
-	}
 	static function end( $val = null ){self::dbClose();exit($val);}
 	static function script( $val ){echo('<script>'.$val.'</script>');}
 	static function go( $val, $isTop = 0 ){self::script( ( $isTop ? 'top.' : '' )."location.href='".$val."';" );}
@@ -414,8 +438,7 @@ bs::route();
 	static function root(){return $_SERVER['DOCUMENT_ROOT'].'/';}
 	static function ip(){return $_SERVER['REMOTE_ADDR'];}
 	static function url(){return $_SERVER['SCRIPT_NAME'];}
-	static function encode( $val ){return urldecode( trim( $val ) );}
-	static function decode( $val ){return urldecode( trim( $val ) );}
+	
 	static function hash( $val ){return hash('sha512', 'bs_'.$val.'_sha512' );}
 	static function uuid(){return md5(com_create_guid());}
 	static function g( $val, $default = false ){return @$_GET[$val] ? trim( $_GET[$val] ) : $default;}
