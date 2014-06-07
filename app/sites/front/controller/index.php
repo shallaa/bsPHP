@@ -12,6 +12,10 @@ class Controller{
 		bs::out( '<h1>Test Suite</h1>',
 			'<div>module : '.( $m ? $m : 'all' ).'</div>'
 		);
+		
+		$v = 'aaaaa';
+		bs::out( count( explode( '#', $v ) ) );
+		
 		//file
 		if( !$m || strpos( $m, 'file' ) !== FALSE ){
 			$this->subTitle('파일읽기');
