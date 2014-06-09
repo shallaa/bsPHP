@@ -97,10 +97,10 @@ class bs{
 		}
 	}
 	//util
-	static function apply( $context, $method, $arg ){
+	static function apply( $context, $method, $arg = NULL ){
 		if( !is_array($arg) ){
 			$arg = func_get_args();
-			if( count($arg) > 2 ) array_splice( $arg, 0, 2 );
+			if( count($arg) > 2 && $arg !== NULL ) array_splice( $arg, 0, 2 );
 			else $arg = NULL;
 		}
 		call_user_func_array( $context ? array( $context, $method ) : $method, $arg );
