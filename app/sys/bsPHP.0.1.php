@@ -426,20 +426,17 @@ class bs{
 	}
 	static function ck(){
 		$arg = func_get_args();
-		$k = $arg[0];
-		if( isset($_COOKIE[$k]) ){
-			if( func_num_args() == 1 ){
-				return trim($_COOKIE[$k]);
-			}else if( isset($arg[1]) ){
-				$v = trim($arg[1]);
-				if( $v === NULL ) setcookie( $k, '', time() - 3600, '/' );
-				else setcookie( $k, $v, isset($arg[2]) ? time() + 86400 * $arg[2] : 0, isset($arg[3]) ? $arg[3] : '/' );
-			}
-		}else return NULL;
+		$k = isset($arg[0]) ? $arg[0] === NULL ? NULL : trim($arg[0]) : NULL;
+		$v = isset($arg[1]) ? $arg[1] === NULL ? NULL : strlen( $v = trim($arg[1]) ) === 0 ? NULL : $v : NULL;
+		if( $k !== NULL && $v == NULL ){
+			setcookie( $arg[0], '', time() - 3600, '/' );
+		}else{
+			setcookie( $arg[0], trim($arg[1]), isset($arg[2]) ? time() + 86400 * $arg[2] : 0, isset($arg[3]) ? $arg[3] : '/' );
+		}
 	}
 	static function ckGet(){
 		for( $t0 = array(), $arg = func_get_args(), $i = 0, $j = func_num_args() ; $i < $j ; ){
-			$k = $arg[0];
+			$k = $arg[$i++];
 			$t0[$k] = isset($_COOKIE[$k]) ? trim($_COOKIE[$k]) : NULL;
 		}
 		return $t0;
