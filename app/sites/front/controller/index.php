@@ -15,6 +15,18 @@ class Controller{
 			'<div>module : '.( $m ? $m : 'all' ).'</div>'
 		);
 		
+		//cookie
+		if( !$m || strpos( $m, 'ck' ) !== FALSE ){
+			$v0 = bs::ckGet('test')['test'];
+			if( $v0 === null ){
+				bs::ck( 'test', 'Cookie 테스트' );
+				header("Refresh:0"); 
+				exit;
+			}
+			bs::out( '/ck : '.$v0, $this->assert( $v0, 'Cookie 테스트' ) );
+			bs::ck( 'test' );
+		}
+		
 		//file
 		if( !$m || strpos( $m, 'file' ) !== FALSE ){
 			$this->subTitle('파일읽기');
