@@ -208,7 +208,7 @@ class bs{
 	}
 	static function ckGet(){
 		for( $t0 = array(), $arg = func_get_args(), $i = 0, $j = func_num_args() ; $i < $j ; ){
-			$k = $arg[0];
+			$k = $arg[$i++];
 			$t0[$k] = isset($_COOKIE[$k]) ? trim($_COOKIE[$k]) : NULL;
 		}
 		return $t0;
