@@ -18,7 +18,8 @@ class Controller{
 		//cookie
 		if( !$m || strpos( $m, 'ck' ) !== FALSE ){
 			$this->subTitle('Cookie');
-			$v0 = bs::ckGet('test')['test'];
+			$v0 = bs::ckGet('test');
+			$v0 = $v0['test'];
 			if( $v0 === null ){
 				bs::ck( 'test', 'Cookie 테스트' );
 				header("Refresh:0"); 
@@ -63,7 +64,7 @@ class Controller{
 		
 		//xml
 		if( !$m || strpos( $m, 'xml' ) !== FALSE ){
-			$this->subTitle('xml');
+			$this->subTitle('XML');
 			$xml = array(
 				'<rss>',
 					'<thread><id>1</id><title>안녕1</title><contents data="14/05/15">내용이다!-1</contents></thread>',
@@ -82,6 +83,18 @@ class Controller{
 				'kkk.1.contents.@data'=>'14/05/11',
 			) as $k=>$v ) bs::out( $k.': '.bs::xml( $xml, $k ), $this->assert( bs::xml( $xml, $k ), $v )  );
 		}
+		
+		//apply
+		if( !$m || strpos( $m, 'apply' ) !== FALSE ){
+			$this->subTitle('Apply');
+			bs::out( 'no argument : '.bs::apply( $this, 'applyTest' ), $this->assert( bs::apply( $this, 'applyTest' ), 0 ) );
+			bs::out( 'array argument : '.bs::apply( $this, 'applyTest', array( 3, 5 ) ), $this->assert( bs::apply( $this, 'applyTest', array( 3, 5 ) ), 8 ) );
+			bs::out( 'arguments : '.bs::apply( $this, 'applyTest', 3, 5 ), $this->assert( bs::apply( $this, 'applyTest', 3, 5 ), 8 ) );
+			
+		}
+	}
+	public function applyTest( $a = 0, $b = 0 ){
+		return $a + $b;
 	}
 	public function get(){bs::out('GET테스트');}
 	public function post(){

@@ -46,7 +46,7 @@ class bs{
 			}
 			header('Content-Type: text/html; charset=utf-8');
 			self::apply( $controller, $method, $uri );
-			//foreach( self::$db as $k=>$v ) self::Db( $k, '.close' );
+			self::end();
 		}
 		else echo( '404' );
 	}
@@ -63,6 +63,10 @@ class bs{
 		$t0 = $code.'::'.$data;
 		if( self::$debugMode ) die($t0);
 		else echo($t0);
+	}
+	static function end( $v = NULL ){
+		//foreach( self::$db as $k=>$v ) self::Db( $k, '.close' );
+		exit($v);
 	}
 	//file
 	static function file(){//10
@@ -96,15 +100,119 @@ class bs{
 			}
 		}
 	}
+	//http
+	static function out(){
+		for( $t0 = '', $i = 0, $j = func_num_args(), $arg = func_get_args() ; $i < $j ; $i++ ) $t0 .= $arg[$i];
+		echo($t0);
+	}
+	static function in(){//20
+		$j = func_num_args();
+		$t0 = array();
+		if( $j === 0 ){
+			foreach( $_POST as $k=>$v ) $t0[$k] = trim($_POST[$k]);
+		}else{
+			for( $arg = func_get_args(), $i = 0 ; $i < $j ; ){
+				$k = $arg[$i++];
+				$type = strtolower($arg[$i++]);
+				if( isset($_POST[$k]) ){
+					$v = trim($_POST[$k]);
+					switch( $type[0] ){
+					case's':$v = (string)$v; break;
+					case'i':$v = (int)$v; break;
+					case'f':$v = (float)$v; break;
+					case'b':$v = (boolean)$v; break;
+					default:self:err( 20, $k );
+					}
+					$t0[$k] = $v;
+				}
+			}
+		}
+		return $t0;
+	}
+	static private $curlBase = NULL;
+	static private $curlKey = NULL;
+	static private function curl( $url ){
+		if( self::$curlBase === NULL ){
+			self::$curlBase = array( CURLOPT_HEADER, FALSE, CURLOPT_RETURNTRANSFER, TRUE, CURLOPT_SSL_VERIFYPEER, FALSE, CURLOPT_SSL_VERIFYHOST, 2 );
+			self::$curlKey = array( 'post'=>CURLOPT_POSTFIELDS, 'header'=>CURLOPT_HTTPHEADER, 'cookie'=>CURLOPT_COOKIE, 'method'=>CURLOPT_CUSTOMREQUEST );
+		}
+		$header = array();
+		for( $curl = curl_init($url), $arg = self::$curlBase, $i = 0, $j = count($arg) ; $i < $j ; ) curl_setopt( $curl, $arg[$i++], $arg[$i++] );
+		for( $arg = func_get_args(), $i = 1, $j = func_num_args() ; $i < $j ; ){
+			$k = $arg[$i++];
+			$v = $arg[$i++];
+			if( $k[0] == '@' ) array_push( $header, substr( $k, 1 ).': '.$v );
+			else{
+				if( $k == 'post' ) curl_setopt( $curl, CURLOPT_POST, TRUE );
+				if( isset(self::$curlKey[$k]) ) $k = self::$curlKey[$k];
+				if( is_array($v) ){
+					for( $v0 = array(), $m = 1, $n = count($v) ; $m < $n ; ) array_push( $v0, self::encode($v[$m++]).'='.self::encode($v[$m++]) );
+					$v = implode( '&', $v0 );
+				}
+				curl_setopt( $curl, $k, $v );
+			}
+		}
+		if( count($header) > 0 ) curl_setopt( $curl, CURLOPT_HTTPHEADER, $header );
+		$t1 = curl_exec($curl);
+		curl_close($curl);
+		return $t1 === FALSE ? curl_error($curl) : $t1;
+	}
+	static function get($url){
+		$j = func_num_args();
+		if( $j > 1 ){
+			$url = explode( '#', $url );
+			$url[0] .= strpos( $url[0], '?' ) !== FALSE ? '&' : '?';
+			for( $arg = func_get_args(), $i = 0 ; $i < $j ; ) $url[0] .= encode($arg[$i++]).'='.encode($arg[$i++]).($i < $j - 1 ? '&' : '');
+			$url = implode( '#', $url );
+		}
+		return self::curl($url);
+	}
+	static function post($url){return self::curl( $url, 'post', func_get_args() );}
+	static function delete($url){return self::curl( $url, 'post', func_get_args(), 'method', 'DELETE' );}
+	static function put($url){return self::curl( $url, 'post', func_get_args(), 'method', 'PUT' );}
+	static function ck(){
+		$arg = func_get_args();
+		$k = isset($arg[0]) ? $arg[0] === NULL ? NULL : trim($arg[0]) : NULL;
+		$v = isset($arg[1]) ? $arg[1] === NULL ? NULL : strlen( $v = trim($arg[1]) ) === 0 ? NULL : $v : NULL;
+		if( $k !== NULL && $v == NULL ){
+			setcookie( $arg[0], '', time() - 3600, '/' );
+		}else{
+			setcookie( $arg[0], trim($arg[1]), isset($arg[2]) ? time() + 86400 * $arg[2] : 0, isset($arg[3]) ? $arg[3] : '/' );
+		}
+	}
+	static function ckGet(){
+		for( $t0 = array(), $arg = func_get_args(), $i = 0, $j = func_num_args() ; $i < $j ; ){
+			$k = $arg[$i++];
+			$t0[$k] = isset($_COOKIE[$k]) ? trim($_COOKIE[$k]) : NULL;
+		}
+		return $t0;
+	}
+	static function session( $key ){
+		if( $key === NULL ) session_destroy();
+		else{
+			if( !isset($_SESSION) ) session_start();
+			for( $arg = func_get_args(), $i = 0, $j = func_num_args() ; $i < $j ; ){
+				$k = $arg[$i++];
+				if( $i == $j ) return isset($_SESSION[$k]) ? $_SESSION[$k] : FALSE;
+				else{
+					$v = $arg[$i++];
+					if( $v === null ) unset($_SESSION[$k]);
+					else $_SESSION[$k] = $v;
+				}
+			}
+			return $v;
+		}
+	}
 	//util
 	static function apply( $context, $method, $arg = NULL ){
 		if( !is_array($arg) ){
 			$arg = func_get_args();
 			if( count($arg) > 2 && $arg !== NULL ) array_splice( $arg, 0, 2 );
-			else $arg = NULL;
+			else $arg = array();
 		}
-		call_user_func_array( $context ? array( $context, $method ) : $method, $arg );
+		return call_user_func_array( $context ? array( $context, $method ) : $method, $arg );
 	}
+	static function hash($v){return hash('sha512', 'bs_'.$v.'_sha512' );}
 	static private $encryptSALT = NULL;
 	static private function encryptSalt(){
 		if( self::$encryptSALT === NULL ) self::$encryptSALT = self::file(SYS.'bsPHP.salt');
@@ -155,65 +263,52 @@ class bs{
 		else $out['value'] = ''.trim($node);
 		return $out;
 	}
-
-
-	static function limit( $page, $rpp ){return ( $page - 1 ) * $rpp;}
-	static function tp( $total, $rpp ){return (int)( ( $total - 1 ) / $rpp ) + 1;}
+	static function script($v){echo('<script>'.$v.'</script>');}
+	static function go( $url, $target = FALSE ){self::script( ( $target ? $target.'.' : '' )."location.href='".$url."';" );}
+	static function reload( $target = FALSE ){self::script( ( $target ? $target.'.' : '' ).".location.reload();" );}
+	static function back(){self::script("history.back();");}
+	static function alert($v){self::script("alert('".$v."');");}
 	
 	static function db2html($v){return  preg_replace( '/\n|\r\n|\r/', '<br/>', str_replace( '<', '&lt;', $val ) );}
 	static function isnum($v){return preg_match( '/^[0-9.]+$/', $v );}
-		
 	
-	/*
-	static function rand( $start, $end ){return mt_rand( $start, $end );}
-	static function len( $data, $add = 0 ){return gettype( $data ) == 'string' ? strlen( $data ) : count( $data ) + $add;}
-	
-	static function end( $val = null ){self::dbClose();exit($val);}
-	static function script( $val ){echo('<script>'.$val.'</script>');}
-	static function go( $val, $isTop = 0 ){self::script( ( $isTop ? 'top.' : '' )."location.href='".$val."';" );}
-	static function reload( $isTop = 0 ){self::script( ( $isTop ? 'top.' : '' ).".location.reload();" );}
-	static function back(){self::script( "history.back();" );}
-	static function alert( $val ){self::script( "alert('". $val ."');" );}
-	static function alertB( $val, $url = null, $isTop = 0 ){self::alert( $val ); $url ? self::go( $url, $isTop ) : self::back();}
-	static function domain(){return $_SERVER['HTTP_HOST'];}
-	static function root(){return $_SERVER['DOCUMENT_ROOT'].'/';}
-	static function ip(){return $_SERVER['REMOTE_ADDR'];}
-	static function url(){return $_SERVER['SCRIPT_NAME'];}
-	
-	static function hash( $val ){return hash('sha512', 'bs_'.$val.'_sha512' );}
+	static function rand( $v0, $v1 ){return mt_rand( $v0, $v1 );}
+	static function len( $v, $add = 0 ){return gettype($v) == 'string' ? strlen($v) : count($v) + $add;}
 	static function uuid(){return md5(com_create_guid());}
 	
-	static function session(){		
-		$arg = func_get_args();
-		$i = 0; $j = func_num_args();
-		if( $arg[0] === null ){
-			session_destroy();
-		}else{
-			if( !isset($_SESSION) ) session_start();
-			while( $i < $j ){
-				$k = $arg[$i++]; 
-				if( $i < $j ) $v = $arg[$i++];
-				else return @$_SESSION[$k];
-				if( $v === null ) unset($_SESSION[$k]);
-				else $_SESSION[$k] = $v;
-			}
-		}
+	static private $serverKey = NULL;
+	static function server($k){
+		if( self::$serverKey === NULL ) self::$serverKey = array(
+			'domain'=>'HTTP_HOST', 'ip'=>'REMOTE_ADDR', 'url'=>'SCRIPT_NAME'
+		);
+		return $_SERVER[isset(self::$serverKey[$k]) ? self::$serverKey[$k] : $k];
 	}
 	static function mail( $from, $to, $subject, $contents, $cc = NULL, $bcc = NULL ){
 		$charset = 'utf-8';
-		$encoded_subject = "=?". $charset ."?B?". base64_encode( $subject ) ."?=";
+		$encoded_subject = "=?".$charset."?B?".base64_encode($subject) ."?=";
 		$t0 = explode( ',', $to );
-		if( count( $t0 ) == 2 ) $to = "=?". $charset ."?B?".base64_encode( trim( $t0[0] ) ) ."?= <". trim( $t0[1] ) .">" ;
+		if( count($t0) == 2 ) $to = "=?".$charset."?B?".base64_encode(trim($t0[0]))."?= <".trim($t0[1]).">" ;
 		$t0 = explode( ',', $from );
-		if( count( $t0 ) == 2 ) $from = "=?". $charset ."?B?".base64_encode( trim( $t0[0] ) )."?= <". trim( $t0[1] ) .">";
-		$headers =
-			"From: ". $from ."\r\n". "Reply-To: ". $from ."\r\n".
-			"Content-type: text/html; charset=". $charset ."\r\n".
-			"Content-Transfer-Encoding: 8bit\r\n";
-		if( $cc ) $headers .= "cc: ". $cc ."\r\n";
-		if( $bcc ) $headers .= "bcc: ". $bcc;
-		return mail( $to, $encoded_subject, $contents, $headers );
+		if( count($t0) == 2 ) $from = "=?".$charset."?B?".base64_encode(trim($t0[0]))."?= <".trim($t0[1]).">";
+		$headers = array(
+			"From: ".$from,
+			"Reply-To: ".$from,
+			"Content-type: text/html; charset=".$charset,
+			"Content-Transfer-Encoding: 8bit"
+		);
+		if( $cc ) array_push( $headers, "cc: ".$cc );
+		if( $bcc ) array_push( $headers, "bcc: ".$bcc );
+		return mail( $to, $encoded_subject, $contents, implode( "\r\n", $headers ) );
 	}
+	/*
+	
+	static function limit( $page, $rpp ){return ( $page - 1 ) * $rpp;}
+	static function tp( $total, $rpp ){return (int)( ( $total - 1 ) / $rpp ) + 1;}
+	
+	
+	
+	
+	
 	//upload----------------------------------------------------------------------
 	static private $upath = '';
 	static private $path = '';
@@ -347,100 +442,7 @@ class bs{
 		}
 	}
 	*/
-	//http
-	static function out(){
-		for( $t0 = '', $i = 0, $j = func_num_args(), $arg = func_get_args() ; $i < $j ; $i++ ) $t0 .= $arg[$i];
-		echo($t0);
-	}
-	static function in(){//20
-		$j = func_num_args();
-		$t0 = array();
-		if( $j === 0 ){
-			foreach( $_POST as $k=>$v ) $t0[$k] = trim($_POST[$k]);
-		}else{
-			for( $arg = func_get_args(), $i = 0 ; $i < $j ; ){
-				$k = $arg[$i++];
-				$type = strtolower($arg[$i++]);
-				if( isset($_POST[$k]) ){
-					$v = trim($_POST[$k]);
-					switch( $type[0] ){
-					case's':$v = (string)$v; break;
-					case'i':$v = (int)$v; break;
-					case'f':$v = (float)$v; break;
-					case'b':$v = (boolean)$v; break;
-					default:self:err( 20, $k );
-					}
-					$t0[$k] = $v;
-				}
-			}
-		}
-		return $t0;
-	}
-	static private $curlBase = array( CURLOPT_HEADER, FALSE, CURLOPT_RETURNTRANSFER, TRUE, CURLOPT_SSL_VERIFYPEER, FALSE, CURLOPT_SSL_VERIFYHOST, 2 );
-	static private $curlKey = array( 'post'=>CURLOPT_POSTFIELDS, 'header'=>CURLOPT_HTTPHEADER, 'cookie'=>CURLOPT_COOKIE, 'method'=>CURLOPT_CUSTOMREQUEST );
-	static private function curl( $url ){
-		$header = array();
-		for( $curl = curl_init($url), $arg = self::$curlBase, $i = 0, $j = count($arg) ; $i < $j ; ) curl_setopt( $curl, $arg[$i++], $arg[$i++] );
-		for( $arg = func_get_args(), $i = 1, $j = func_num_args() ; $i < $j ; ){
-			$k = $arg[$i++];
-			$v = $arg[$i++];
-			if( $k[0] == '@' ) array_push( $header, substr( $k, 1 ).': '.$v );
-			else{
-				if( isset(self::$curlKey[$k]) ) $k = self::$curlKey[$k];
-				if( is_array($v) ){
-					for( $v0 = array(), $m = 0, $n = count($v) ; $m < $n ; ) array_push( $v0, self::encode($v[$m++]).'='.self::encode($v[$m++]) );
-					$v = implode( '&', $v0 );
-				}
-				curl_setopt( $curl, $k, $v );
-			}
-		}
-		if( count($header) > 0 ) curl_setopt( $curl, CURLOPT_HTTPHEADER, $header );
-		$t1 = curl_exec($curl);
-		curl_close($curl);
-		return $t1 === FALSE ? curl_error($curl) : $t1;
-	}
-	static function get( $url ){
-		$j = func_num_args();
-		if( $j > 1 ){
-			$url = explode( '#', $url );
-			$url[0] .= strpos( $url[0], '?' ) !== FALSE ? '&' : '?';
-			for( $arg = func_get_args(), $i = 0 ; $i < $j ; ) $url[0] .= encode($arg[$i++]).'='.encode($arg[$i++]).($i < $j - 1 ? '&' : '');
-			$url = implode( '#', $url );
-		}
-		return self::curl($url);
-	}
-	static function post( $url ){
-		$arg = func_get_args();
-		array_shift($arg);
-		return self::curl( $url, CURLOPT_POST, TRUE, 'post', $arg );
-	}
-	static function delete( $url ){
-		$arg = func_get_args();
-		array_shift($arg);
-		return self::curl( $url, CURLOPT_POST, TRUE, 'post', $arg, 'method', 'DELETE' );
-	}
-	static function put( $url ){
-		$arg = func_get_args();
-		array_shift($arg);
-		return self::curl( $url, CURLOPT_POST, TRUE, 'post', $arg, 'method', 'PUT' );
-	}
-	static function ck(){
-		$arg = func_get_args();
-		$k = isset($arg[0]) ? $arg[0] === NULL ? NULL : trim($arg[0]) : NULL;
-		$v = isset($arg[1]) ? $arg[1] === NULL ? NULL : strlen( $v = trim($arg[1]) ) === 0 ? NULL : $v : NULL;
-		if( $k !== NULL && $v == NULL ){
-			setcookie( $arg[0], '', time() - 3600, '/' );
-		}else{
-			setcookie( $arg[0], trim($arg[1]), isset($arg[2]) ? time() + 86400 * $arg[2] : 0, isset($arg[3]) ? $arg[3] : '/' );
-		}
-	}
-	static function ckGet(){
-		for( $t0 = array(), $arg = func_get_args(), $i = 0, $j = func_num_args() ; $i < $j ; ){
-			$k = $arg[$i++];
-			$t0[$k] = isset($_COOKIE[$k]) ? trim($_COOKIE[$k]) : NULL;
-		}
-		return $t0;
-	}
+	
 }
 bs::route();
 	/*
