@@ -45,7 +45,7 @@ class bs{
 				}else $method = DEFAULT_METHOD;
 			}
 			header('Content-Type: text/html; charset=utf-8');
-			call_user_func_array( array( $controller, $method ), $uri );
+			self::apply( $controller, $method, $uri );
 			//foreach( self::$db as $k=>$v ) self::Db( $k, '.close' );
 		}
 		else echo( '404' );
@@ -97,6 +97,14 @@ class bs{
 		}
 	}
 	//util
+	static function apply( $context, $method, $arg ){
+		if( !is_array($arg) ){
+			$arg = func_get_args();
+			if( count($arg) > 2 ) array_splice( $arg, 0, 2 );
+			else $arg = NULL;
+		}
+		call_user_func_array( $context ? array( $context, $method ) : $method, $arg );
+	}
 	static private $encryptSALT = NULL;
 	static private function encryptSalt(){
 		if( self::$encryptSALT === NULL ) self::$encryptSALT = self::file(SYS.'bsPHP.salt');
@@ -116,6 +124,229 @@ class bs{
 	}
 	static function encode($v){return urlencode(trim($v));}
 	static function decode($v){return urldecode(trim($v));}
+	static function json( $v, $isDecode = FALSE ){return $isEncode ? json_decode( $v, true ) : json_encode( $v, 256 );}
+	static private $xmlCache = array();
+	static function xml( $xml, $key = FALSE ){
+		if( isset(self::$xmlCache[$xml]) ) $t0 = self::$xmlCache[$xml];
+		else{
+			$t0 = array();
+			foreach( simplexml_load_string($xml) as $k=>$v ){
+				if( !isset($t0[$k]) ) $t0[$k] = array();
+				array_push( $t0[$k], self::xmlParse($v) );
+			}
+			foreach( $t0 as $k=>$v ) if( count($v) == 1 ) $t0[$k] = $v[0];
+			self::$xmlCache[$xml] = $t0;
+		}
+		if( $key ){
+			$key = explode( '.', $key );
+			$data = $t0[$key[0]];
+			for( $i = 1, $j = count($key) ; $i < $j ; $i++ ){
+				$k = $key[$i];
+				$data = $data[$k];
+			}
+			return $k[0] == '@' || $k == 'value' ? $data : $data['value'];
+		}else return $t0;
+	}
+	static private function xmlParse( $node ){
+		$out = array();
+		$attr = $node->attributes();
+		if( count($attr) > 0 ) foreach( $attr as $k=>$v ) $out['@'.$k] = trim($v);
+		if( $node->count() ) foreach( $node as $k=>$v ) $out[$k] = self::xmlParse($v);
+		else $out['value'] = ''.trim($node);
+		return $out;
+	}
+
+
+	static function limit( $page, $rpp ){return ( $page - 1 ) * $rpp;}
+	static function tp( $total, $rpp ){return (int)( ( $total - 1 ) / $rpp ) + 1;}
+	
+	static function db2html($v){return  preg_replace( '/\n|\r\n|\r/', '<br/>', str_replace( '<', '&lt;', $val ) );}
+	static function isnum($v){return preg_match( '/^[0-9.]+$/', $v );}
+		
+	
+	/*
+	static function rand( $start, $end ){return mt_rand( $start, $end );}
+	static function len( $data, $add = 0 ){return gettype( $data ) == 'string' ? strlen( $data ) : count( $data ) + $add;}
+	
+	static function end( $val = null ){self::dbClose();exit($val);}
+	static function script( $val ){echo('<script>'.$val.'</script>');}
+	static function go( $val, $isTop = 0 ){self::script( ( $isTop ? 'top.' : '' )."location.href='".$val."';" );}
+	static function reload( $isTop = 0 ){self::script( ( $isTop ? 'top.' : '' ).".location.reload();" );}
+	static function back(){self::script( "history.back();" );}
+	static function alert( $val ){self::script( "alert('". $val ."');" );}
+	static function alertB( $val, $url = null, $isTop = 0 ){self::alert( $val ); $url ? self::go( $url, $isTop ) : self::back();}
+	static function domain(){return $_SERVER['HTTP_HOST'];}
+	static function root(){return $_SERVER['DOCUMENT_ROOT'].'/';}
+	static function ip(){return $_SERVER['REMOTE_ADDR'];}
+	static function url(){return $_SERVER['SCRIPT_NAME'];}
+	
+	static function hash( $val ){return hash('sha512', 'bs_'.$val.'_sha512' );}
+	static function uuid(){return md5(com_create_guid());}
+	
+	static function session(){		
+		$arg = func_get_args();
+		$i = 0; $j = func_num_args();
+		if( $arg[0] === null ){
+			session_destroy();
+		}else{
+			if( !isset($_SESSION) ) session_start();
+			while( $i < $j ){
+				$k = $arg[$i++]; 
+				if( $i < $j ) $v = $arg[$i++];
+				else return @$_SESSION[$k];
+				if( $v === null ) unset($_SESSION[$k]);
+				else $_SESSION[$k] = $v;
+			}
+		}
+	}
+	static function mail( $from, $to, $subject, $contents, $cc = NULL, $bcc = NULL ){
+		$charset = 'utf-8';
+		$encoded_subject = "=?". $charset ."?B?". base64_encode( $subject ) ."?=";
+		$t0 = explode( ',', $to );
+		if( count( $t0 ) == 2 ) $to = "=?". $charset ."?B?".base64_encode( trim( $t0[0] ) ) ."?= <". trim( $t0[1] ) .">" ;
+		$t0 = explode( ',', $from );
+		if( count( $t0 ) == 2 ) $from = "=?". $charset ."?B?".base64_encode( trim( $t0[0] ) )."?= <". trim( $t0[1] ) .">";
+		$headers =
+			"From: ". $from ."\r\n". "Reply-To: ". $from ."\r\n".
+			"Content-type: text/html; charset=". $charset ."\r\n".
+			"Content-Transfer-Encoding: 8bit\r\n";
+		if( $cc ) $headers .= "cc: ". $cc ."\r\n";
+		if( $bcc ) $headers .= "bcc: ". $bcc;
+		return mail( $to, $encoded_subject, $contents, $headers );
+	}
+	//upload----------------------------------------------------------------------
+	static private $upath = '';
+	static private $path = '';
+	static function upPath( $path ){
+		if( $path == NULL ) $path = 'up/';
+
+
+		self::$path = '/'. $path;
+		self::$upath = self::root() . $path;
+	}
+	static function up(){
+		$arguments = func_get_args();
+		$i = func_num_args() ;
+		$fld = $i < 1 ? 'upfile' : $arguments[0];
+		$path = $i < 2 ? NULL : $arguments[1];
+		$type = $i < 3 ? 'img' : $arguments[2];
+		$max = $i < 4 ? NULL : $arguments[3];
+		$fname = self::uCheck( $fld, $path, $type, $max );
+		if( $fname && self::uMove( $fld, $fname ) ) return self::$path . $fname;
+		else return false;
+	}
+	static private function uCheck(){
+		$arguments = func_get_args();
+		$files = $_FILES[$arguments[0]];
+		self::uPath( $arguments[1] );
+		//파일체크
+		if( !is_uploaded_file( $files['tmp_name'] ) )return false;
+		//이름변환
+		$t0 = explode( '.', $files['name'] );
+		$name = date( 'Ymd_his_' ) . self::ip();
+		$ext = strtolower( $t0[1] );
+		$path = $name .'.'. $ext;		
+		//확장자필터링
+		$t0 = $arguments[2];
+		if( $t0 == 'all' ) $t1 = array( 'doc', 'docx', 'ppt', 'pptx', 'pdf', 'hwp', 'zip', 'jpg', 'gif', 'png' );
+		else if( $t0 == 'img' ) $t1 = array( 'jpg', 'gif', 'png' );
+		else $t1 = explode( ',', $t0 );
+		$t2 = false;
+		for( $i = 0, $j = count( $t1 ) ; $i < $j ; $i++ ){
+			if( $ext == $t1[$i] ){
+				$t2 = true;
+				break;
+			}
+		}
+		if( $t2 == false ) return false;
+		//사이즈필터링
+		$t0 = $arguments[3];
+		if( $t0 && $t0 < $files['size'] ) return false;
+		//업로드폴더확인
+		$t0 = self::root();
+		$t1 = explode( '/', str_replace( $t0, '', self::$upath ) );
+		for( $i = 0, $j = count( $t1 ) ; $i < $j ; ++$i ){
+			if( $t1[$i] != '' ){
+				$t0 .= $t1[$i] .'/';
+				if( !is_dir( $t0 ) ) mkdir( $t0 );
+			}
+		}
+		//중복이름확인
+		if( file_exists( self::$upath . $path ) ){
+			for( $i = 1 ; ; $i++ ){
+				$t0 = $name .'_'. $i .'.'. $ext;
+				if( !file_exists( self::$upath . $t0 ) ){
+					$r = $t0;
+					break;
+				}
+			}
+		}else $r = $path;
+		return $r;
+	}
+	static private function uMove( $val, $name ){
+		if( !move_uploaded_file( $_FILES[$val]['tmp_name'], self::$upath.$name ) ) return false;
+		else return true;
+	}
+	/*function bsUpresize( $f = 'upfile', $path = NULL, $w = 50, $h = 50, $ftype = 'img', $maxsize = 0 ){
+		global $_bsUp;
+		$fileName = _bsUpfileCheck( $f, $path, $ftype, $maxsize );
+		if( $fileName ){		
+			$ext = substr( $fileName, -3 );
+			switch( $ext ){
+			case'gif': $img = imagecreatefromgif( $_FILES[$f]['tmp_name'] ); break;
+			case'jpg': $img = imagecreatefromjpeg( $_FILES[$f]['tmp_name'] ); break;
+			case'png': $img = imagecreatefrompng( $_FILES[$f]['tmp_name'] ); break;
+			}		
+			$imgx = imagesx( $img ); $imgy = imagesy( $img );
+			if( $w < $imgx || $h < $imgy ){
+				if( $w / $h <= $imgx / $imgy ){//가로기준 축소
+					$width = $w;
+					$height = (int)( $imgy * $w / $imgx);
+					$px = 0;
+					$py = (int)( ( $h - $height ) / 2 );
+				}else{
+					$width = (int)( $imgx * $h / $imgy );
+					$height = $h;
+					$px = (int)( ( $w - $width ) / 2 );
+					$py = 0;
+				}
+				$source = imagecreatetruecolor( $w, $h );
+				$copy = imagecreatetruecolor( $width, $height );
+				if( $ext == 'png' ){
+					$image = imagecreatefromgif( $_bsUp['noneImg'] );
+					imagealphablending( $source, false );
+					imagesavealpha( $source, true );
+					imagecopyresampled( $source, $image, 0, 0, 0, 0, $w, $h, 1, 1 );
+					
+					imagealphablending( $copy, false );
+					imagesavealpha( $copy, true );
+					imagecopyresampled( $copy, $img, 0, 0, 0, 0, $width, $height, $imgx, $imgy );
+				}else{
+					$back = imagecolorallocate( $source, 255, 255, 255 );
+					imagefilledrectangle( $source, 0, 0, $w, $h, $back );//--이거 안하면 배경이 검정색이 됨...
+					imagecopyresized( $copy, $img, 0, 0, 0, 0, $width, $height, $imgx, $imgy );
+				}
+				imagecopy( $source, $copy, $px, $py, 0, 0, $width, $height );
+				switch( $ext ){
+				case'gif': imagegif( $source, $_bsUp['upPath'].$fileName ); break;
+				case'jpg': imagejpeg( $source, $_bsUp['upPath'].$fileName ); break;
+				case'png': imagepng( $source, $_bsUp['upPath'].$fileName ); break;
+				}
+				imagedestroy( $source );
+				imagedestroy( $copy );
+			}else{
+				if( _bsUpfileMove( $f, $fileName ) ){		
+					return $fileName;
+				}else{
+					return NULL;
+				}
+			}
+			return $fileName;
+		}else{
+			return NULL;
+		}
+	}
+	*/
 	//http
 	static function out(){
 		for( $t0 = '', $i = 0, $j = func_num_args(), $arg = func_get_args() ; $i < $j ; $i++ ) $t0 .= $arg[$i];
@@ -423,224 +654,7 @@ bs::route();
 		}
 		return $val;
 	}
-	static function jsonencode($v){return json_encode( $v, 256 );}
-	static function jsondecode($v){return json_decode( $v, true );}
-	static function limit( $page, $rpp ){return ( $page - 1 ) * $rpp;}
-	static function tp( $total, $rpp ){return (int)( ( $total - 1 ) / $rpp ) + 1;}
-	static function split( $val, $sep ){return explode( $sep, $val );}
-	static function replace( $val, $search, $replace = '' ){return str_replace( $search, $replace, $val );}
-	static function stripBr( $val ){return preg_replace( '/[\s]*[\s]/', ' ', preg_replace( '/(<br \/\>)|(<br>)/', ' ', $val ) );}
-	static function lineBr( $val ){return preg_replace( '/[\n]/', '<br>', $val );}
-	static function db2html( $val ){return  preg_replace( '/\n|\r\n|\r/', '<br/>', str_replace( '<', '&lt;', $val ) );}
 	
-	static function isnum( $data ){
-		for( $i = 0, $j = strlen( $data ) ; $i < $j ; $i++ ){
-			$t0 = ord( $data[$i] );
-			if( $t0 < 48 || $t0 > 57 ) return false;
-		}
-		return true;
-	}
-	static function xml( $data ){
-		if( $data[0] == '@' ) $data = self::fileR( substr( $data, 1 ) );
-		return simplexml_load_string( $data );
-	}
-	static function xmlGet( $xml, $val ){
-		$val = explode( '.', $val );
-		for( $i = 0, $j = count( $val ) ; $i < $j ; $i++ ){
-			$t0 = $val[$i];
-			if( $t0[0] == '@') $xml = $xml[substr( $t0, 1 )];
-			else if( str::isnum( $t0 ) ) $xml = $xml[(int)$t0];
-			else $xml = $xml->{$t0};
-		}
-		return $xml;
-	}	
-	static function apply( $method ){
-		$r = null; $method = '$r = '.$method.'(';
-		for( $i = 1, $j = count( func_num_args() ), $arg = func_get_args() ; $i < $j ; $i++ ) $method .= '$arg['.$i.']'.( $i < $j - 1 ? ',' : ');' );
-		eval( $method );
-		return $r;
-	}
-	static function rand( $start, $end ){return mt_rand( $start, $end );}
-	static function len( $data, $add = 0 ){return gettype( $data ) == 'string' ? strlen( $data ) : count( $data ) + $add;}
-	
-	static function end( $val = null ){self::dbClose();exit($val);}
-	static function script( $val ){echo('<script>'.$val.'</script>');}
-	static function go( $val, $isTop = 0 ){self::script( ( $isTop ? 'top.' : '' )."location.href='".$val."';" );}
-	static function reload( $isTop = 0 ){self::script( ( $isTop ? 'top.' : '' ).".location.reload();" );}
-	static function back(){self::script( "history.back();" );}
-	static function alert( $val ){self::script( "alert('". $val ."');" );}
-	static function alertB( $val, $url = null, $isTop = 0 ){self::alert( $val ); $url ? self::go( $url, $isTop ) : self::back();}
-	static function domain(){return $_SERVER['HTTP_HOST'];}
-	static function root(){return $_SERVER['DOCUMENT_ROOT'].'/';}
-	static function ip(){return $_SERVER['REMOTE_ADDR'];}
-	static function url(){return $_SERVER['SCRIPT_NAME'];}
-	
-	static function hash( $val ){return hash('sha512', 'bs_'.$val.'_sha512' );}
-	static function uuid(){return md5(com_create_guid());}
-	
-	static function session(){		
-		$arg = func_get_args();
-		$i = 0; $j = func_num_args();
-		if( $arg[0] === null ){
-			session_destroy();
-		}else{
-			if( !isset($_SESSION) ) session_start();
-			while( $i < $j ){
-				$k = $arg[$i++]; 
-				if( $i < $j ) $v = $arg[$i++];
-				else return @$_SESSION[$k];
-				if( $v === null ) unset($_SESSION[$k]);
-				else $_SESSION[$k] = $v;
-			}
-		}
-	}
-	static function mail( $from, $to, $subject, $contents, $cc = NULL, $bcc = NULL ){
-		$charset = 'utf-8';
-		$encoded_subject = "=?". $charset ."?B?". base64_encode( $subject ) ."?=";
-		$t0 = explode( ',', $to );
-		if( count( $t0 ) == 2 ) $to = "=?". $charset ."?B?".base64_encode( trim( $t0[0] ) ) ."?= <". trim( $t0[1] ) .">" ;
-		$t0 = explode( ',', $from );
-		if( count( $t0 ) == 2 ) $from = "=?". $charset ."?B?".base64_encode( trim( $t0[0] ) )."?= <". trim( $t0[1] ) .">";
-		$headers =
-			"From: ". $from ."\r\n". "Reply-To: ". $from ."\r\n".
-			"Content-type: text/html; charset=". $charset ."\r\n".
-			"Content-Transfer-Encoding: 8bit\r\n";
-		if( $cc ) $headers .= "cc: ". $cc ."\r\n";
-		if( $bcc ) $headers .= "bcc: ". $bcc;
-		return mail( $to, $encoded_subject, $contents, $headers );
-	}
-	//upload----------------------------------------------------------------------
-	static private $upath = '';
-	static private $path = '';
-	static function upPath( $path ){
-		if( $path == NULL ) $path = 'up/';
-
-
-		self::$path = '/'. $path;
-		self::$upath = self::root() . $path;
-	}
-	static function up(){
-		$arguments = func_get_args();
-		$i = func_num_args() ;
-		$fld = $i < 1 ? 'upfile' : $arguments[0];
-		$path = $i < 2 ? NULL : $arguments[1];
-		$type = $i < 3 ? 'img' : $arguments[2];
-		$max = $i < 4 ? NULL : $arguments[3];
-		$fname = self::uCheck( $fld, $path, $type, $max );
-		if( $fname && self::uMove( $fld, $fname ) ) return self::$path . $fname;
-		else return false;
-	}
-	static private function uCheck(){
-		$arguments = func_get_args();
-		$files = $_FILES[$arguments[0]];
-		self::uPath( $arguments[1] );
-		//파일체크
-		if( !is_uploaded_file( $files['tmp_name'] ) )return false;
-		//이름변환
-		$t0 = explode( '.', $files['name'] );
-		$name = date( 'Ymd_his_' ) . self::ip();
-		$ext = strtolower( $t0[1] );
-		$path = $name .'.'. $ext;		
-		//확장자필터링
-		$t0 = $arguments[2];
-		if( $t0 == 'all' ) $t1 = array( 'doc', 'docx', 'ppt', 'pptx', 'pdf', 'hwp', 'zip', 'jpg', 'gif', 'png' );
-		else if( $t0 == 'img' ) $t1 = array( 'jpg', 'gif', 'png' );
-		else $t1 = explode( ',', $t0 );
-		$t2 = false;
-		for( $i = 0, $j = count( $t1 ) ; $i < $j ; $i++ ){
-			if( $ext == $t1[$i] ){
-				$t2 = true;
-				break;
-			}
-		}
-		if( $t2 == false ) return false;
-		//사이즈필터링
-		$t0 = $arguments[3];
-		if( $t0 && $t0 < $files['size'] ) return false;
-		//업로드폴더확인
-		$t0 = self::root();
-		$t1 = explode( '/', str_replace( $t0, '', self::$upath ) );
-		for( $i = 0, $j = count( $t1 ) ; $i < $j ; ++$i ){
-			if( $t1[$i] != '' ){
-				$t0 .= $t1[$i] .'/';
-				if( !is_dir( $t0 ) ) mkdir( $t0 );
-			}
-		}
-		//중복이름확인
-		if( file_exists( self::$upath . $path ) ){
-			for( $i = 1 ; ; $i++ ){
-				$t0 = $name .'_'. $i .'.'. $ext;
-				if( !file_exists( self::$upath . $t0 ) ){
-					$r = $t0;
-					break;
-				}
-			}
-		}else $r = $path;
-		return $r;
-	}
-	static private function uMove( $val, $name ){
-		if( !move_uploaded_file( $_FILES[$val]['tmp_name'], self::$upath.$name ) ) return false;
-		else return true;
-	}
-	/*function bsUpresize( $f = 'upfile', $path = NULL, $w = 50, $h = 50, $ftype = 'img', $maxsize = 0 ){
-		global $_bsUp;
-		$fileName = _bsUpfileCheck( $f, $path, $ftype, $maxsize );
-		if( $fileName ){		
-			$ext = substr( $fileName, -3 );
-			switch( $ext ){
-			case'gif': $img = imagecreatefromgif( $_FILES[$f]['tmp_name'] ); break;
-			case'jpg': $img = imagecreatefromjpeg( $_FILES[$f]['tmp_name'] ); break;
-			case'png': $img = imagecreatefrompng( $_FILES[$f]['tmp_name'] ); break;
-			}		
-			$imgx = imagesx( $img ); $imgy = imagesy( $img );
-			if( $w < $imgx || $h < $imgy ){
-				if( $w / $h <= $imgx / $imgy ){//가로기준 축소
-					$width = $w;
-					$height = (int)( $imgy * $w / $imgx);
-					$px = 0;
-					$py = (int)( ( $h - $height ) / 2 );
-				}else{
-					$width = (int)( $imgx * $h / $imgy );
-					$height = $h;
-					$px = (int)( ( $w - $width ) / 2 );
-					$py = 0;
-				}
-				$source = imagecreatetruecolor( $w, $h );
-				$copy = imagecreatetruecolor( $width, $height );
-				if( $ext == 'png' ){
-					$image = imagecreatefromgif( $_bsUp['noneImg'] );
-					imagealphablending( $source, false );
-					imagesavealpha( $source, true );
-					imagecopyresampled( $source, $image, 0, 0, 0, 0, $w, $h, 1, 1 );
-					
-					imagealphablending( $copy, false );
-					imagesavealpha( $copy, true );
-					imagecopyresampled( $copy, $img, 0, 0, 0, 0, $width, $height, $imgx, $imgy );
-				}else{
-					$back = imagecolorallocate( $source, 255, 255, 255 );
-					imagefilledrectangle( $source, 0, 0, $w, $h, $back );//--이거 안하면 배경이 검정색이 됨...
-					imagecopyresized( $copy, $img, 0, 0, 0, 0, $width, $height, $imgx, $imgy );
-				}
-				imagecopy( $source, $copy, $px, $py, 0, 0, $width, $height );
-				switch( $ext ){
-				case'gif': imagegif( $source, $_bsUp['upPath'].$fileName ); break;
-				case'jpg': imagejpeg( $source, $_bsUp['upPath'].$fileName ); break;
-				case'png': imagepng( $source, $_bsUp['upPath'].$fileName ); break;
-				}
-				imagedestroy( $source );
-				imagedestroy( $copy );
-			}else{
-				if( _bsUpfileMove( $f, $fileName ) ){		
-					return $fileName;
-				}else{
-					return NULL;
-				}
-			}
-			return $fileName;
-		}else{
-			return NULL;
-		}
-	}
 	
 	//date----------------------------------------------------------------------
 	static function datePart( $part, $date = null ){

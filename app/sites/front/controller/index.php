@@ -35,18 +35,37 @@ class Controller{
 			bs::out( $v0.':'.strlen($v0).':'.strlen('안녕쓰기!'), $this->assert( $v0, $contents ) );
 		}
 		
-		//get
-		if( !$m || strpos( $m, 'get' ) !== FALSE ){
+		//curl
+		if( !$m || strpos( $m, 'curl' ) !== FALSE ){
 			$this->subTitle('GET');
 			$v0 = bs::get( $this->url.'/get' );
 			bs::out( '/get : '.$v0, $this->assert( $v0, 'GET테스트' ) );
-		}
-		
-		//post,in
-		if( !$m || strpos( $m, 'post' ) !== FALSE ){
+
 			$this->subTitle('POST,IN');
 			$v0 = bs::post( $this->url.'/post', 'test', 'POST테스트', 'num', 30 );
 			bs::out( '/post : '.$v0, $this->assert( $v0, 'POST테스트integer30' ) );
+		}
+		
+		//xml
+		if( !$m || strpos( $m, 'xml' ) !== FALSE ){
+			$this->subTitle('xml');
+			$xml = array(
+				'<rss>',
+					'<thread><id>1</id><title>안녕1</title><contents data="14/05/15">내용이다!-1</contents></thread>',
+					'<thread><id>2</id><title>안녕2</title><contents data="14/05/14">내용이다!-2</contents></thread>',
+					'<kkk><id>1</id><title>안녕3</title><contents data="14/05/13">내용이다!-3</contents></kkk>',
+					'<thread><id>3</id><title>안녕4</title><contents data="14/05/12">내용이다!-4</contents></thread>',
+					'<kkk><id>2</id><title>안녕5</title><contents data="14/05/11">내용이다!-5</contents></kkk>',
+					'<aaa><id>2</id><title>안녕6</title><contents data="14/05/10">내용이다!-6</contents></aaa>',
+				'</rss>'
+			);
+			bs::out( 'XML:<br>'.implode( '<br>', preg_replace( '/[<]/', '&lt;', $xml ) ).'<br><br>' );
+			$xml = implode( '', $xml );
+			foreach( array(
+				'thread.0.id'=>'1', 'thread.1.title'=>'안녕2', 'thread.2.contents'=>'내용이다!-4',
+				'aaa.title'=>'안녕6', 'aaa.contents.value'=>'내용이다!-6',
+				'kkk.1.contents.@data'=>'14/05/11',
+			) as $k=>$v ) bs::out( $k.': '.bs::xml( $xml, $k ), $this->assert( bs::xml( $xml, $k ), $v )  );
 		}
 	}
 	public function get(){bs::out('GET테스트');}
