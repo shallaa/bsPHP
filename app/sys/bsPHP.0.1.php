@@ -146,22 +146,27 @@ class bs{
 		return $t0;
 	}
 	static private $curlBase = array( CURLOPT_HEADER, FALSE, CURLOPT_RETURNTRANSFER, TRUE, CURLOPT_SSL_VERIFYPEER, FALSE, CURLOPT_SSL_VERIFYHOST, 2 );
-	static private $curlKey = array( 'post'=>CURLOPT_POSTFIELDS, 'header'=>CURLOPT_HTTPHEADER, 'cookie'=>CURLOPT_COOKIE );
+	static private $curlKey = array( 'post'=>CURLOPT_POSTFIELDS, 'header'=>CURLOPT_HTTPHEADER, 'cookie'=>CURLOPT_COOKIE, 'method'=>CURLOPT_CUSTOMREQUEST );
 	static private function curl( $url ){
-		for( $t0 = curl_init($url), $arg = self::$curlBase, $i = 0, $j = count($arg) ; $i < $j ; ) curl_setopt( $t0, $arg[$i++], $arg[$i++] );
+		$header = array();
+		for( $curl = curl_init($url), $arg = self::$curlBase, $i = 0, $j = count($arg) ; $i < $j ; ) curl_setopt( $curl, $arg[$i++], $arg[$i++] );
 		for( $arg = func_get_args(), $i = 1, $j = func_num_args() ; $i < $j ; ){
 			$k = $arg[$i++];
-			if( isset(self::$curlKey[$k]) ) $k = self::$curlKey[$k];
 			$v = $arg[$i++];
-			if( is_array($v) && $k !== CURLOPT_HTTPHEADER ){
-				for( $v0 = array(), $m = 0, $n = count($v) ; $m < $n ; ) array_push( $v0, self::encode($v[$m++]).'='.self::encode($v[$m++]) );
-				$v = implode( '&', $v0 );
+			if( $k[0] == '@' ) array_push( $header, substr( $k, 1 ).': '.$v );
+			else{
+				if( isset(self::$curlKey[$k]) ) $k = self::$curlKey[$k];
+				if( is_array($v) ){
+					for( $v0 = array(), $m = 0, $n = count($v) ; $m < $n ; ) array_push( $v0, self::encode($v[$m++]).'='.self::encode($v[$m++]) );
+					$v = implode( '&', $v0 );
+				}
+				curl_setopt( $curl, $k, $v );
 			}
-			curl_setopt( $t0, $k, $v );
 		}
-		$t1 = curl_exec($t0);
-		curl_close($t0);
-		return $t1 === FALSE ? curl_error($t0) : $t1;
+		if( count($header) > 0 ) curl_setopt( $curl, CURLOPT_HTTPHEADER, $header );
+		$t1 = curl_exec($curl);
+		curl_close($curl);
+		return $t1 === FALSE ? curl_error($curl) : $t1;
 	}
 	static function get( $url ){
 		$j = func_num_args();
@@ -177,6 +182,16 @@ class bs{
 		$arg = func_get_args();
 		array_shift($arg);
 		return self::curl( $url, CURLOPT_POST, TRUE, 'post', $arg );
+	}
+	static function delete( $url ){
+		$arg = func_get_args();
+		array_shift($arg);
+		return self::curl( $url, CURLOPT_POST, TRUE, 'post', $arg, 'method', 'DELETE' );
+	}
+	static function put( $url ){
+		$arg = func_get_args();
+		array_shift($arg);
+		return self::curl( $url, CURLOPT_POST, TRUE, 'post', $arg, 'method', 'PUT' );
 	}
 	static function ck(){
 		$arg = func_get_args();
