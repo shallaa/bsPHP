@@ -46,7 +46,7 @@ class bs{
 			}
 			header('Content-Type: text/html; charset=utf-8');
 			call_user_func_array( array( $controller, $method ), $uri );
-			foreach( self::$db as $k=>$v ) self::Db( $k, '.close' );
+			//foreach( self::$db as $k=>$v ) self::Db( $k, '.close' );
 		}
 		else echo( '404' );
 	}
@@ -132,8 +132,13 @@ class bs{
 				$type = strtolower($arg[$i++]);
 				if( isset($_POST[$k]) ){
 					$v = trim($_POST[$k]);
-					$v = $type[0] == 's' ? (string)$v : $type[0] == 'i' ? (int)$v : $type[0] == 'f' ? (float)$v : $type[0] == 'b' ? (boolean)$v : NULL;
-					if( $v === NULL ) self:err( 20, $k );
+					switch( $type[0] ){
+					case's':$v = (string)$v; break;
+					case'i':$v = (int)$v; break;
+					case'f':$v = (float)$v; break;
+					case'b':$v = (boolean)$v; break;
+					default:self:err( 20, $k );
+					}
 					$t0[$k] = $v;
 				}
 			}
@@ -143,19 +148,17 @@ class bs{
 	static private $curlBase = array( CURLOPT_HEADER, FALSE, CURLOPT_RETURNTRANSFER, TRUE, CURLOPT_SSL_VERIFYPEER, FALSE, CURLOPT_SSL_VERIFYHOST, 2 );
 	static private $curlKey = array( 'post'=>CURLOPT_POSTFIELDS, 'header'=>CURLOPT_HTTPHEADER, 'cookie'=>CURLOPT_COOKIE );
 	static private function curl( $url ){
-		$t0 = curl_init();
-		for( $arg = self::$curlBase, $i = 0, $j = count($arg) ; $i < $j ; ) curl_setopt( $t0, $arg[$i++], $arg[$i++] );
+		for( $t0 = curl_init($url), $arg = self::$curlBase, $i = 0, $j = count($arg) ; $i < $j ; ) curl_setopt( $t0, $arg[$i++], $arg[$i++] );
 		for( $arg = func_get_args(), $i = 1, $j = func_num_args() ; $i < $j ; ){
 			$k = $arg[$i++];
 			if( isset(self::$curlKey[$k]) ) $k = self::$curlKey[$k];
 			$v = $arg[$i++];
-			if( is_array($v) && $k != CURLOPT_HTTPHEADER ){
-				for( $v0 = array(), $m = 0, $n = count($v) ; $m < $n ; ) array_push( $v0, encode($v[$m++]).'='.encode($v[$m++]) );
+			if( is_array($v) && $k !== CURLOPT_HTTPHEADER ){
+				for( $v0 = array(), $m = 0, $n = count($v) ; $m < $n ; ) array_push( $v0, self::encode($v[$m++]).'='.self::encode($v[$m++]) );
 				$v = implode( '&', $v0 );
 			}
 			curl_setopt( $t0, $k, $v );
 		}
-		curl_setopt( $t0, CURLOPT_URL, $url );
 		$t1 = curl_exec($t0);
 		curl_close($t0);
 		return $t1 === FALSE ? curl_error($t0) : $t1;
@@ -171,7 +174,9 @@ class bs{
 		return self::curl($url);
 	}
 	static function post( $url ){
-		return self::curl( $url, CURLOPT_POST, TRUE, 'post', array_shift(func_get_args()) );
+		$arg = func_get_args();
+		array_shift($arg);
+		return self::curl( $url, CURLOPT_POST, TRUE, 'post', $arg );
 	}
 	static function ck(){
 		$arg = func_get_args();
