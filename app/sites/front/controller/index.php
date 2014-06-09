@@ -7,7 +7,7 @@ class Controller{
 	
 	public function __construct(){
 		if( strpos( $_SERVER["SERVER_NAME"], 'cookilab' ) !== FALSE ) $this->url = 'http://bsphp.cookilab.com/index.php';
-		else if( strpos( $_SERVER["SERVER_NAME"], 'bsidesoft' ) !== FALSE ) $this->url = 'http://www.bsplugin.com/bsPHP/index.php';
+		else if( strpos( $_SERVER["SERVER_NAME"], 'bsidesoft' ) !== FALSE ) $this->url = 'http://www.bsidesoft.com/bs/bsPHP/index.php';
 		else $this->url = 'http://www.bsplugin.com/bsPHP/index.php';
 	}
 	public function index( $m = FALSE ){
@@ -17,6 +17,7 @@ class Controller{
 		
 		//cookie
 		if( !$m || strpos( $m, 'ck' ) !== FALSE ){
+			$this->subTitle('Cookie');
 			$v0 = bs::ckGet('test')['test'];
 			if( $v0 === null ){
 				bs::ck( 'test', 'Cookie 테스트' );
