@@ -10,6 +10,8 @@ define( 'DEFAULT_METHOD', 'index' );
 define( 'ROOT', realpath('').'/' );
 define( 'APP', ROOT.'app/' );
 define( 'SYS', APP.'sys/' );
+define( 'TABLE', APP.'db/table/' );
+define( 'SQL', APP.'db/sql/' );
 define( 'SITE', APP.'sites/'.ID.'/' );
 define( 'CONTROLLER', SITE.'controller/' );
 define( 'VIEW', SITE.'view/' );

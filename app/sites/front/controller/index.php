@@ -101,5 +101,9 @@ class Controller{
 		$v0 = bs::in( 'test', 's', 'num', 'i' );
 		bs::out($v0['test'].gettype($v0['num']).$v0['num']);
 	}
+	//db
+	public function db(){
+		bs::sql('member.sql');
+	}
 }
 ?>

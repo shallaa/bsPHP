@@ -65,7 +65,7 @@ class bs{
 		else echo($t0);
 	}
 	static function end( $v = NULL ){
-		//foreach( self::$db as $k=>$v ) self::Db( $k, '.close' );
+		self::dbClose();
 		exit($v);
 	}
 	//file
@@ -124,7 +124,7 @@ class bs{
 					default:self:err( 20, $k );
 					}
 					$t0[$k] = $v;
-				}
+				}else self::err( 20, $k );
 			}
 		}
 		return $t0;
@@ -230,6 +230,7 @@ class bs{
 			mcrypt_create_iv( mcrypt_get_iv_size( MCRYPT_RIJNDAEL_256, MCRYPT_MODE_ECB ), MCRYPT_RAND )
 		) );
 	}
+	static function uuid(){return md5(com_create_guid());}
 	static function encode($v){return urlencode(trim($v));}
 	static function decode($v){return urldecode(trim($v));}
 	static function json( $v, $isDecode = FALSE ){return $isEncode ? json_decode( $v, true ) : json_encode( $v, 256 );}
@@ -273,8 +274,9 @@ class bs{
 	static function isnum($v){return preg_match( '/^[0-9.]+$/', $v );}
 	
 	static function rand( $v0, $v1 ){return mt_rand( $v0, $v1 );}
-	static function len( $v, $add = 0 ){return gettype($v) == 'string' ? strlen($v) : count($v) + $add;}
-	static function uuid(){return md5(com_create_guid());}
+	
+	static function limit( $page, $rpp ){return ( $page - 1 ) * $rpp;}
+	static function tp( $total, $rpp ){return (int)( ( $total - 1 ) / $rpp ) + 1;}
 	
 	static private $serverKey = NULL;
 	static function server($k){
@@ -300,22 +302,317 @@ class bs{
 		if( $bcc ) array_push( $headers, "bcc: ".$bcc );
 		return mail( $to, $encoded_subject, $contents, implode( "\r\n", $headers ) );
 	}
+	//date
+	static private $dateKey = array( 'aam'=>'오전', 'apm'=>'오후', 'w0'=>'일', 'w1'=>'월', 'w2'=>'화', 'w3'=>'수', 'w4'=>'목', 'w5'=>'금', 'w6'=>'토' );
+	static function datePart( $part, $date = null ){
+		$time = self::dateGet( $date );
+		if( strpos( $part, 'w' ) ) $part = str_replace( 'w', self::$dateKey['w'.date( 'w', $time )], $part );
+		else if( strpos( $part, 'a' ) ) $part = str_replace( 'a', self::$dateKey['a'.date( 'a', $time )], $part );
+		return date( $part, $time );
+	}
+	static function dateAdd( $interval, $number, $date = null, $part = 'Y-m-d H:i:s' ){
+		$time = self::dateGet($date);
+		switch( strtolower($interval) ){
+		case'y':$time = strtotime( ($number).' year', $time ); break;//year
+		case'd':$time = strtotime( ($number).' day', $time ); break;//day
+		case'h':$time = strtotime( ($number).' hour', $time ); break;//hour
+		case'i':$time = strtotime( ($number).' minute', $time ); break;//minute
+		case's':$time = strtotime( ($number).' second', $time ); break;//second
+		case'm'://month
+			$time = strtotime( self::datePart( 'Y-m',$time ) ).'-01';
+			$time = strtotime( ($number).' month', $time ); break;
+		default:return null;
+		}
+		return self::datePart( $part, $time );
+	}
+	static function dateDiff( $interval, $dateOld, $dataNew = NULL ){
+		$date1 = self::dateGet( $dateOld );$date2 = self::dateGet( $dataNew );
+		switch( strtolower( $interval ) ){
+		case'h':return (int)( ( $date2 - $date1 ) / 3600 );
+		case'i':return (int)( ( $date2 - $date1 ) / 60 );
+		case's':return $date2 - $date1;
+		case'y':return self::datePart( 'y', $date2 ) - self::datePart( 'y', $date1 );
+		case'm':return ( self::datePart( 'y', $date2 ) - self::datePart( 'y', $date1 ) ) * 12 + self::datePart( 'm', $date2 ) - self::datePart( 'm', $date1 );
+		case'd':
+			if( $date2 > $date1 )$order = 1;
+			else{
+				$order = -1;
+				$date1 = self::dateGet( $dataNew );
+				$date2 = self::dateGet( $dateOld );
+			}
+			$d1_year = self::datePart( 'Y', $date1 );
+			$d1_month = self::datePart( 'n', $date1 );
+			$d1_date = self::datePart( 'j', $date1 );
+			$d2_year = self::datePart( 'Y', $date2 );
+			$d2_month = self::datePart( 'n', $date2 );
+			$d2_date = self::datePart( 'j', $date2 );
+			$j = $d2_year - $d1_year;
+			$d = 0;
+			if( $j > 0 ){
+				$d += self::diff( 'd', self::mktime( $d1_year, $d1_month, $d1_date ), self::mktime( $d1_year, 12, 31 ) );
+				$d += self::diff( 'd', self::mktime( $d2_year, 1, 1 ), self::mktime( $d2_year, $d2_month, $d2_date ) );
+				$year = $d1_year + 2;
+				for( $i = 2 ; $i < $j - 1 ; $i++ ){
+					$d += self::leapYear( $year )?366:365;
+					$year++;
+				}
+			}else{
+				$temp = array( null, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 );
+				if( self::leapYear( $d1_year ) ) $temp[2]++;
+				$j = $d2_month - $d1_month;
+				if( $j > 0 ){
+					$d += self::dateDiff( 'd', self::mktime( $d1_year, $d1_month, $d1_date ), self::mktime( $d1_year, $d1_month, $temp[$d1_month] ) ) + 1;
+					$d += self::dateDiff( 'd', self::mktime( $d2_year, $d2_month, 1 ), self::mktime( $d2_year, $d2_month, $d2_date ) );
+					$month = $d1_month + 1;
+					for( $i = 1 ; $i < $j ; $i++ ) $d += $temp[$month++];
+				}else $d += $d2_date - $d1_date;
+			}
+			return $d * $order;
+		}
+		return NULL;
+	}
+	static private function mktime( $y, $m, $d, $h = 0, $i = 0, $s = 0 ){return mktime( $h, $i, $s, $m, $d, $y );}
+	static private function leapYear( $year ){return ( $year % 4 == 0 && $year % 100 != 0 ) || $year % 400 == 0;}
+	static private function dateGet( $date = NULL ){
+		if( gettype( $date ) == 'integer' ) return $date;
+		else if( $date ){
+			if( strpos( $date, '-' ) === false ) return (int)$date;
+			else{
+				$i = explode( '-', $date ); $h = $m = $s = 0;
+				if( strpos( $i[2], ' ' ) ){
+					$temp = explode( ' ', $i[2] );
+					$i[2] = $temp[0];
+					$temp = explode( ':', $temp[1] );
+					$h = (int)$temp[0]; $m = (int)$temp[1]; $s = (int)$temp[2];
+				}
+				return self::mktime( (int)$i[0], (int)$i[1], (int)$i[2], $h, $m, $s );
+			}
+		}else return time();
+	}
+	//db
+	static private $db = array();
+	static private $dbDefault = NULL;
+	static private $dbCurr = NULL;
+	static private function dbOpen( $key = NULL ){//30
+		if( $key === NULL ){
+			$key = self::$dbDefault;
+			if( !isset(self::$db[$key]) ){
+				self::err( 30, $key );
+				return FALSE;
+			}
+		}
+		self::$dbCurr = $key;
+		$d = &self::$db[$key];
+		if( !$d['conn'] ){
+			$d['conn'] = mysql_connect( $d['url'], $d['id'], $d['pw'] );
+			$encoding = $d['encoding'];
+			mysql_query('SET NAMES euckr');
+			mysql_select_db( $d['db'], $d['conn'] );
+			mysql_query('set session character_set_connection='.$encoding.';');
+			mysql_query('set session character_set_results='.$encoding.';');
+			mysql_query('set session character_set_client='.$encoding.';');
+		}
+		return $d['conn'];
+	}
+	static private function dbClose( $key = NULL ){
+		foreach( self::$db as $k=>$v ){
+			if( $v['conn'] !== FALSE ){
+				mysql_close($v['conn']);
+				$v['conn'] = FALSE;
+			}
+		}
+	}
+	static function db( $key, $url, $id, $pw, $db, $encoding = 'utf8', $isDefault = FALSE ){
+		self::$db[$key] = array( 'key'=>$key, 'conn'=>FALSE, 'url'=>$url, 'id'=>$id, 'pw'=>$pw, 'db'=>$db, 'encoding'=>$encoding );
+		if( $isDefault || $isDefault === NULL ) self::$dbDefault = self::$db[$key];
+	}
+	//sql
+	static private $sql = array('@INFO'=>'SHOW FULL COLUMNS FROM @table@');
+	static private $sqlInfo = array();
+	static private $sqlKey;
+	static private $sqlTable = array();
+	static $tableInfo = array();
+	static private function sqlTable( $table, $instance ){
+		if( isset(self::$sqlTable[$table]) ) return self::$sqlTable[$table];
+		$path = TABLE.self::$dbCurr.'/'.$table.'.json';
+		$info = self::file($path);
+		if( $info === FALSE ){
+			$rs = self::query( '@INFO', array( 'table'=>$table ) );
+			$info = array();
+			foreach( $rs as $row ){
+				$type = strtolower($row['Type']);
+				$isStr = FALSE;
+				$validation = '';
+				$comment = preg_replace( '/\/[*](.+)[*]\//', '$1', $row['Comment'] );
+				if( $comment == '/**/' ) $comment = '';
+				if( strpos( $type, 'char' ) !== FALSE ){
+					$isStr = TRUE;
+					if( strpos( $type, 'max_length' ) === FALSE ) $validation .= 'max_length['.substr( $type, strpos( $type, '(' ) + 1, -1 ).']';
+				}else if( strpos( $type, 'text' ) !== FALSE || strpos( $type, 'blob' ) !== FALSE || strpos( $type, 'binary' ) !== FALSE || strpos( $type, 'enum' ) !== FALSE || strpos( $type, 'set' ) !== FALSE ){
+					$isStr = TRUE;
+				}else if( strpos( $type, 'int' ) !== FALSE || strpos( $type, 'timestamp' ) !== FALSE || strpos( $type, 'year' ) !== FALSE ){
+					if( strpos( $type, 'integer' ) === FALSE ) $validation .= 'integer';
+				}else if( strpos( $type, 'decimal' ) !== FALSE || strpos( $type, 'float' ) !== FALSE || strpos( $type, 'double' ) !== FALSE || strpos( $type, 'real' ) !== FALSE ){
+					if( strpos( $type, 'decimal' ) === FALSE ) $validation .= 'decimal';
+				}
+				$info[$row['Field']] = array(
+					$validation.( $validation !== '' && $comment !== '' ? '|' : '' ).$comment,
+					$isStr,
+					strtolower($row['Extra']) === 'auto_increment' ? TRUE : FALSE,
+					strtolower($row['Null']) === 'yes' ? TRUE : FALSE,
+					$isStr ? $row['Default'] : intval($row['Default'], 10)
+				);
+			}
+			self::file( $path, json_encode( $info, 256 ) );
+		}else $info = json_decode( $info, true );
+		self::$sqlTable[$table] = $info;
+		return $info;
+	}
+	static function sqlParse($str){
+		if( strpos( $str[0], ':' ) === FALSE ) return $str;
+		$str = explode( ':', $str[0] );
+		$meta = explode( '.', $str[1] );
+		$vali = self::sqlTable( $meta[0], $this );
+		self::$sqlInfo[self::$sqlKey][substr( $str[0], 1 )] = $vali[substr( $meta[1], 0, -1 )];
+		return $str[0].'@';
+	}
+	static private function sqlAdd( $key, $query ){//40
+		if( $query[0] == ':' ){
+			$str = explode( ' ', $query );
+			$table = $str[1];
+			switch( $str[0] ){
+			case':insert':
+				$insert = array();
+				$values = array();
+				for( $i = 2, $j = count($str) ; $i < $j ; $i++ ){
+					$token = explode( ':', $str[$i] );
+					array_push( $insert, substr( $token[1], 0, -1 ) );
+					array_push( $values, $token[0].':'.$table.'.'.$token[1] );
+				}
+				$query = 'insert into '.$table.'('.implode( ',', $insert ).')values('.implode( ',', $values ).')';
+				break;
+			case':update':
+				$values = array();
+				$where = array();
+				$w = false;
+				for( $i = 2, $j = count($str) ; $i < $j ; $i++ ){
+					if( strtolower( $str[$i] ) == 'where' ){ $w = true; continue; }
+					$token = explode( ':', $str[$i] );
+					if( $w ) array_push( $where, substr( $token[1], 0, -1 ).'='.$token[0].':'.$table.'.'.$token[1] );
+					else array_push( $values, substr( $token[1], 0, -1 ).'='.$token[0].':'.$table.'.'.$token[1] );
+				}
+				$query = 'update '.$table.' set '.implode( ',', $values ). ' where '.implode( ' and ', $where );
+				break;
+			case':delete':
+				$where = array();
+				for( $i = 3, $j = count($str) ; $i < $j ; $i++ ){
+					$token = explode( ':', $str[$i] );
+					array_push( $where, substr( $token[1], 0, -1 ).'='.$token[0].':'.$table.'.'.$token[1] );
+				}
+				$query = 'delete from '.$table.' where '.implode( ' and ', $where );
+				break;
+			default: return self::err( 40, $str[0] );
+			}
+		}
+		if( strpos( $key, ':' ) === FALSE ) $type = 'object';
+		else{
+			$key = explode( ':', $key );
+			$type = strtolower(trim($key[1]));
+			$key = trim($key[0]);
+		}
+		if( !isset(self::$sqlInfo[$key]) ) self::$sqlInfo[$key] = array();
+		self::$sqlKey = $key;
+		self::$sql[$key] = array( trim(preg_replace_callback( '/@[^@]+@/', 'bs::sqlParse', $query )), $type );
+	}
+	static function sql( $file, $key = NULL ){
+		$conn = self::dbOpen($key);
+		$sql = self::file(SQL.$file);
+		if( $sql !== FALSE ){
+			$sql = explode( '--', $sql );
+			for( $i = 1, $j = count($sql) ; $i < $j ; $i++ ){
+				$k = strpos( $sql[$i], "\n" );
+				if( $k === FALSE ){
+					$k = strpos( $sql[$i], "\r" );
+					if( $k === FALSE ) return;
+				}
+				self::sqlAdd( trim(substr( $sql[$i], 0, $k )), trim(substr( $sql[$i], $k + 1 )) );
+			}
+		}
+	}
+	//query
+	static $queryError = NULL;
+	static $queryCount = 0;
+	static $queryInsertID = 0;
+	static function query( $key, $data = NULL, $db = NULL ){//40
+		if( !isset(self::$sql[$key]) ) return self::err( 40, $key );
+		$query = self::$sql[$key][0];
+		$isDML = strpos( strtolower(substr( $query, 0, 5 )), 'select' ) === FALSE;
+		if( $data === NULL ) $data = $_POST;
+		if( count(self::$sqlInfo[$key]) > 0 ){
+			if( count($data) == 0 ){
+				self::$queryError = 'NoData:'.$k;
+				return FALSE;
+			}
+			$validation = array();
+			foreach( self::$sqlInfo[$key] as $k=>$info ){
+				if( !isset($data[$k]) ){
+					self::$queryError = 'NoData:'.$k;
+					return FALSE;
+				}else if( $info[1] && $isDML ){
+					self::$queryError = 'AI_DML:'.$k;
+					return FALSE;
+				}
+				$v = mysql_real_escape_string($data[$k]);
+				array_push( $validation, $k, $v, $info[2] );
+				if( $info[0] === TRUE ) $v = "'".str_replace( "'", "''", $v )."'";
+				$query = str_replace( '@'.$k.'@', $v, $query );
+			}
+			if( !self::vali( $validation ) ){
+				self::$queryError = 'VALI:'.self::$valiError;
+				return FALSE;
+			}
+		}
+		$rs = mysql_query( $query, self::dbOpen($key) );
+		if( $rs === TRUE ){
+			self::$queryCount = mysql_affected_rows();
+			self::$queryInsertID = strpos( strtolower(substr( $query, 0, 5 )), 'insert' ) ? mysql_insert_id() : 0;
+			return TRUE;
+		}else if( $rs === FALSE ){
+			self::$queryError = 'ERR:'.mysql_error();
+			return FALSE;
+		}else{
+			self::$queryCount = $count = mysql_num_rows($rs);
+			if( $count === 0 ){
+				self::$queryError = 'NoRecord';
+				return FALSE;
+			}
+			$type = self::$sql[$key][1];
+			if( $type == 'object' ){
+				$r = array();
+				while( $row = mysql_fetch_object($rs) ) array_push( $r, $row );
+			}else if( $type == 'array' ){
+				$r = array();
+				while( $row = mysql_fetch_row($rs) ) array_push( $r, $row );
+			}else if( $type == 'raw' ) return $rs;
+			else if( $type[0] == '[' ){
+				$r = substr( $type, 1, -1 );
+				$row = self::isnum($r) ? mysql_fetch_row($rs) : mysql_fetch_object($rs);
+				$r = $row[$r];
+			}
+			return $r;
+		}
+	}
+	//validation
+	static $valiError = NULL;
+	static function vali( $data ){
+		return TRUE;
+	}
 	/*
-	
-	static function limit( $page, $rpp ){return ( $page - 1 ) * $rpp;}
-	static function tp( $total, $rpp ){return (int)( ( $total - 1 ) / $rpp ) + 1;}
-	
-	
-	
-	
-	
-	//upload----------------------------------------------------------------------
+	//upload
 	static private $upath = '';
 	static private $path = '';
 	static function upPath( $path ){
 		if( $path == NULL ) $path = 'up/';
-
-
 		self::$path = '/'. $path;
 		self::$upath = self::root() . $path;
 	}
@@ -442,530 +739,6 @@ class bs{
 		}
 	}
 	*/
-	
 }
 bs::route();
-	/*
-	//db----------------------------------------------------------------------
-	
-	static private $db = array();
-	static private $dbDefault;
-	static function Db($sel){
-		if( !self::$dbDefault ) self::$dbDefault = $sel;
-		if( !isset(self::$db[$sel]) ) self::$db[$sel] = $d = array( 'conn'=>false, 'driver'=>'mysql' );
-		else $d = &self::$db[$sel];
-		for( $arg = func_get_args(), $i = 1, $j = func_num_args() ; $i < $j ; ){
-			$k = $arg[$i++];
-			$v = $i < $j ? $arg[$i++] : NULL;
-			switch( $k ){
-			case'driver':case'url':case'id':case'pw':case'db': if( $v ) $d[$k] = $v; $v = $d[$k]; break;
-			case'conn': return $d['conn'];
-			case'.close':
-				if( $d['conn'] ){
-					switch( $d['driver'] ){
-					case'mysql':mysql_close( $d['conn'] ); break;
-					}
-					$d['conn'] = false;
-				}
-				return;
-			case'.open':
-				if( !$d['conn'] ){
-					switch( $d['driver'] ){
-					case'mysql':
-						$d['conn'] = mysql_connect( $d['url'], $d['id'], $d['pw'] );
-						mysql_query('SET NAMES euckr');
-						mysql_select_db( $d['db'], $d['conn'] );
-						$v = $v || 'utf8';
-						mysql_query('set session character_set_connection='.$v.';');
-						mysql_query('set session character_set_results='.$v.';');
-						mysql_query('set session character_set_client='.$v.';');
-						break;
-					}
-				}
-				return $d['conn'];
-			case'.query':
-				if( !$d['conn'] ) self::DB( $sel, '.open' );
-				switch( $d['driver'] ){
-				case'mysql':return mysql_query( $v, $d['conn'] );
-				}
-			case'.sql':
-				if( !$d['conn'] ) self::DB( $sel, '.open' );
-				$query = self::file( BS_PATH_MODEL.$key );
-				if( $query !== FALSE ){
-					$query = explode( '--', $query );
-					for( $i = 1, $j = count($query) ; $i < $j ; $i++ ){
-						$k = strpos( $query[$i], "\n" );
-						if( $k === FALSE ){
-							$k = strpos( $query[$i], "\r" );
-							if( $k === FALSE ) return;
-						}
-						$this->sqlAdd( trim(substr( $query[$i], 0, $k )), trim(substr( $query[$i], $k + 1 )) );
-					}
-				}
-			}
-		}
-	}
-	function sqlParse($str){
-		if( strpos( $str[0], ':' ) === FALSE ) return $str;
-		$str = explode( ':', $str[0] );
-		$meta = explode( '.', $str[1] );
-		$vali = self::tableInfo( $meta[0], $this );
-		$this->queryInfo[$this->sqlKey][substr( $str[0], 1 )] = $vali[substr( $meta[1], 0, -1 )];
-		return $str[0].'@';
-	}
-	function sqlAdd( $key, $query ){
-		if( $query[0] == ':' ){
-			$str = explode( ' ', $query );
-			switch( $str[0] ){
-			case':insert':
-				$table = $str[1];
-				$insert = array();
-				$values = array();
-				for( $i = 2, $j = count($str) ; $i < $j ; $i++ ){
-					$token = explode( ':', $str[$i] );
-					array_push( $insert, substr( $token[1], 0, -1 ) );
-					array_push( $values, $token[0].':'.$table.'.'.$token[1] );
-				}
-				$query = 'insert into '.$table.'('.implode( ',', $insert ).')values('.implode( ',', $values ).')';
-				break;
-			case ':update':
-				$table = $str[1];
-				$values = array();
-				$where = array();
-				$w = false;
-				for( $i = 2, $j = count($str) ; $i < $j ; $i++ ){
-					if( strtolower( $str[$i] ) == 'where' ){ $w = true; continue; }
-					$token = explode( ':', $str[$i] );
-					if( $w ) array_push( $where, substr( $token[1], 0, -1 ).'='.$token[0].':'.$table.'.'.$token[1] );
-					else array_push( $values, substr( $token[1], 0, -1 ).'='.$token[0].':'.$table.'.'.$token[1] );
-				}
-				$query = 'update '.$table.' set '.implode( ',', $values ). ' where '.implode( ' and ', $where );
-				break;
-			case ':delete':
-				$table = $str[1];
-				$where = array();
-				for( $i = 3, $j = count($str) ; $i < $j ; $i++ ){
-					$token = explode( ':', $str[$i] );
-					array_push( $where, substr( $token[1], 0, -1 ).'='.$token[0].':'.$table.'.'.$token[1] );
-				}
-				$query = 'delete from '.$table.' where '.implode( ' and ', $where );
-				break;
-			default:
-				return;
-			}
-		}
-		if( isset($this->queryInfo[$key]) === FALSE ) $this->queryInfo[$key] = array();
-		$this->sqlKey = $key;
-		$this->query[$key] = trim(preg_replace_callback( BS_TEMPLATE, $this->sqlParseContext, $query ));
-	}
-	function sql( $key, $query = null ){
-		$this->dbc();
-		if( $this->sqlParseContext === null ) $this->sqlParseContext = array( $this, 'sqlParse' );
-		if( $query == null ){
-			$query = read_file( BS_PATH_MODEL.$key );
-			if( $query !== FALSE ){
-				$query = explode( '--', $query );
-				for( $i = 1, $j = count($query) ; $i < $j ; $i++ ){
-					$k = strpos( $query[$i], "\n" );
-					if( $k === FALSE ){
-						$k = strpos( $query[$i], "\r" );
-						if( $k === FALSE ) return;
-					}
-					$this->sqlAdd( trim(substr( $query[$i], 0, $k )), trim(substr( $query[$i], $k + 1 )) );
-				}
-			}
-		}else{
-			$this->sqlAdd( $key, $query );
-		}
-	}
-	/*
-					if( @!$d['conn'] ) self::DB( $sel, '.open' );
-				$r = mysql_query(  $v, $d['conn'] );
-				if( $r === true ) return true;
-				else if( $r === false || mysql_num_rows( $r ) == 0 ) return false;
-				$rs = array();
-				while( $row = mysql_fetch_row( $r ) ) array_push( $rs, $row );
-				return $rs;
-			case'.raw':
-				if( @!$d['conn'] ) self::DB( $sel, '.open' );
-				$r = mysql_query(  $v, $d['conn'] );
-				if( !$r || !mysql_num_rows( $r ) ) return false;
-				return $r;
-			case'.record':
-				if( @!$d['conn'] ) self::DB( $sel, '.open' );
-				$r = mysql_query(  $v, $d['conn'] );
-				if( !$r || !mysql_num_rows( $r ) ) return false;
-				mysql_data_seek( $r, $arg[$i] );
-				return mysql_fetch_row( $r );
-
-	//sql----------------------------------------------------------------------
-	static private $sql = array();
-	static function Sql( $sel ){
-		if( !@self::$sql[$sel] ) {$s = &self::$sql[$sel]; $s=array();}
-		else $s = self::$sql[$sel];
-		$i = 1; $j = func_num_args(); $arg = func_get_args();
-		while( $i < $j ){
-			$k = $arg[$i++];
-			$v = $i < $j ? $arg[$i++] : NULL;
-			switch( $k ){
-			case'query':case'q': if( $v ) $s['q'] = $v; $s['isSelect'] = strtolower( substr( $v, 0, 6 ) ) == 'select'; break;
-			case'db':case'type':case'record':case'field': if( $v ) $s[$k] = $v; $v = $s[$k]; break;
-			case'.run':
-				$r = array();
-				$sql = $s['q'];
-				$db = @$s['db'] ? $s['db']:self::$dbDefault;
-				if( is_array($sql) ){
-					$success = true;
-					bs::Db( $db, '.ex', "SET AUTOCOMMIT=0" );
-					bs::Db( $db, '.ex', "BEGIN" );
-					for( $m = 0, $n = count( $sql ) ; $m < $n ; $m++ ){
-						if( $v ) $sql[$m] = bs::tmpl( $sql[$m], $v );						
-						if( !bs::Db( $db, '.ex', $sql[$m] ) ) return bs::Db( $db, '.ex', "ROLLBACK" );
-					}
-					bs::Db( $db, '.ex', "COMMIT" );
-				}else{
-					if( $v ) $sql = bs::tmpl( $sql, $v );
-					//echo( $sql.'<br>');
-					switch( @$s['type'] ){
-					case'raw':
-						if( $s['isSelect'] ) return bs::Db( $db, '.raw', $sql );
-						else die();
-					case'record':
-						if( $s['isSelect'] ) return bs::Db( $db, '.record', $sql, $s['record']  );
-						else die();
-					case'field':
-						if( $s['isSelect'] ){
-							$r = bs::Db( $db, '.record', $sql, $s['record']  );
-							return $r[$s['field']];
-						}else die();
-					}
-					return bs::Db( $db, '.rs', $sql );
-				}
-			}
-		}
-	}
-	static function tmpl( $val, $arr ){
-		if( !is_array($arr) ) $arr = func_get_args();
-		foreach( $arr as $key=>$t0 ){
-			$t0 = @mysql_escape_string( $t0 );
-			if( @$t0[0] == '@' ) $t0 = "'". substr( $t0, 1 ) ."'";
-			$val = str_replace( '@'.$key.'@', $t0, $val );
-		}
-		return $val;
-	}
-	
-	
-	//date----------------------------------------------------------------------
-	static function datePart( $part, $date = null ){
-		$time = self::dateGet( $date );
-		if( strpos( $part, 'w' ) ) $part = str_replace( 'w', self::datePart_( 'w', $time ), $part );
-		else if( strpos( $part, 'a' ) ) $part = str_replace( 'a', self::datePart_( 'a', $time ), $part );
-		return date( $part, $time );
-	}
-	static private function datePart_( $part, $date = null ){
-		switch( $part ){
-		case'a':
-			switch( date( 'a', $date ) ){
-			case'am': return '오전';
-			case'pm': return '오후';
-			}
-			break;
-		case'w':
-			switch( date( 'w', $date ) ){
-			case 0: return '일';
-			case 1: return '월';
-			case 2: return '화';
-			case 3: return '수';
-			case 4: return '목';
-			case 5: return '금';
-			case 6: return '토';
-			}
-			break;
-		}
-	}
-	static function dateAdd( $interval, $number, $date = null, $part = 'Y-m-d H:i:s' ){
-		$time = self::dateGet( $date );
-		switch( strtolower( $interval ) ){
-		case'y':$time = strtotime( ($number).' year', $time ); break;//year
-		case'd':$time = strtotime( ($number).' day', $time ); break;//day
-		case'h':$time = strtotime( ($number).' hour', $time ); break;//hour
-		case'i':$time = strtotime( ($number).' minute', $time ); break;//minute
-		case's':$time = strtotime( ($number).' second', $time ); break;//second
-		case'm'://month
-			$time = strtotime( self::datePart( 'Y-m',$time ) ).'-01';
-			$time = strtotime( ($number).' month', $time ); break;
-		default:return null;
-		}
-		return self::datePart( $part, $time );
-	}
-	static function dateDiff( $interval, $dateOld, $dataNew = NULL ){
-		$date1 = self::dateGet( $dateOld );$date2 = self::dateGet( $dataNew );
-		switch( strtolower( $interval ) ){
-		case'h':return (int)( ( $date2 - $date1 ) / 3600 );
-		case'i':return (int)( ( $date2 - $date1 ) / 60 );
-		case's':return $date2 - $date1;
-		case'y':return self::datePart( 'y', $date2 ) - self::datePart( 'y', $date1 );
-		case'm':return ( self::datePart( 'y', $date2 ) - self::datePart( 'y', $date1 ) ) * 12 + self::datePart( 'm', $date2 ) - self::datePart( 'm', $date1 );
-		case'd':
-			if( $date2 > $date1 )$order = 1;
-			else{
-				$order = -1;
-				$date1 = self::dateGet( $dataNew );
-				$date2 = self::dateGet( $dateOld );
-			}
-			$d1_year = self::datePart( 'Y', $date1 );
-			$d1_month = self::datePart( 'n', $date1 );
-			$d1_date = self::datePart( 'j', $date1 );
-			$d2_year = self::datePart( 'Y', $date2 );
-			$d2_month = self::datePart( 'n', $date2 );
-			$d2_date = self::datePart( 'j', $date2 );
-			$j = $d2_year - $d1_year;
-			$d = 0;
-			if( $j > 0 ){
-				$d += self::diff( 'd', self::mktime( $d1_year, $d1_month, $d1_date ), self::mktime( $d1_year, 12, 31 ) );
-				$d += self::diff( 'd', self::mktime( $d2_year, 1, 1 ), self::mktime( $d2_year, $d2_month, $d2_date ) );
-				$year = $d1_year + 2;
-				for( $i = 2 ; $i < $j - 1 ; $i++ ){
-					$d += self::leapYear( $year )?366:365;
-					$year++;
-				}
-			}else{
-				$temp = array( null, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 );
-				if( self::leapYear( $d1_year ) ) $temp[2]++;
-				$j = $d2_month - $d1_month;
-				if( $j > 0 ){
-					$d += self::dateDiff( 'd', self::mktime( $d1_year, $d1_month, $d1_date ), self::mktime( $d1_year, $d1_month, $temp[$d1_month] ) ) + 1;
-					$d += self::dateDiff( 'd', self::mktime( $d2_year, $d2_month, 1 ), self::mktime( $d2_year, $d2_month, $d2_date ) );
-					$month = $d1_month + 1;
-					for( $i = 1 ; $i < $j ; $i++ ) $d += $temp[$month++];
-				}else $d += $d2_date - $d1_date;
-			}
-			return $d * $order;
-		}
-		return NULL;
-	}
-	static private function leapYear( $year ){return ( $year % 4 == 0 && $year % 100 != 0 ) || $year % 400 == 0;}
-	static function mktime( $y, $m, $d, $h = 0, $i = 0, $s = 0 ){return mktime( $h, $i, $s, $m, $d, $y );}
-	static private function dateGet( $date = NULL ){
-		if( gettype( $date ) == 'integer' ) return $date;
-		else if( $date ){
-			if( strpos( $date, '-' ) === false ) return (int)$date;
-			else{
-				$i = explode( '-', $date ); $h = $m = $s = 0;
-				if( strpos( $i[2], ' ' ) ){
-					$temp = explode( ' ', $i[2] );
-					$i[2] = $temp[0];
-					$temp = explode( ':', $temp[1] );
-					$h = (int)$temp[0]; $m = (int)$temp[1]; $s = (int)$temp[2];
-				}
-				return self::mktime( (int)$i[0], (int)$i[1], (int)$i[2], $h, $m, $s );
-			}
-		}else return time();
-	}
-	//validate------------------------------------------------------------------
-	static function _ip($arg){return preg_match("/^((([0-9]{1,2})|(1[0-9]{2})|(2[0-4][0-9])|(25[0-5]))\.){3}(([0-9]{1,2})|(1[0-9]{2})|(2[0-4][0-9])|(25[0-5]))$/",$arg);	}
-	static function _url($arg){
-		return preg_match("/^https?:\/\/[-\w.]+(:[0-9]+)?(\/([\w\/_.]*)?)?$/",$arg);	
-	}
-	static function _email($arg){
-		return preg_match("/^(\w+\.)*\w+@(\w+\.)+[A-Za-z]+$/",$arg);	
-	}
-	static function _korean($arg){
-		return preg_match("/^[ㄱ-힣]+$/",$arg);	
-	}
-	static function _alphaL($arg){
-		return preg_match("/^[a-z]+$/",$arg);	
-	}
-	static function _ALPHAU($arg){
-		return preg_match("/^[A-Z]+$/",$arg);	
-	}
-	static function _num($arg){
-		return preg_match("/^[0-9]+$/",$arg);	
-	}
-	static function _alphanum($arg){
-		return preg_match("/^[a-z0-9]+$/",$arg);	
-	}
-	static function _1alphaL($arg){
-		return preg_match("/^[a-z]/",$arg);	
-	}
-	static function _1ALPHAU($arg){
-		return preg_match("/^[A-Z]/",$arg);	
-	}
-	static function _float($arg){
-		return floatval($arg).''===$arg;	
-	}
-	static function _int($arg){
-		return intval($arg,10).''===$arg;	
-	}
-	static function _ssn($arg){
-		$r = '/\s|-/';
-		$key = '234567892345';
-		$v = preg_replace($r,'',$arg);
-		if(strlen($v)!=13) return false;
-		for($t0 = $i = 0; $i < 12 ; $i++){
-			$t0 += intval($v{$i},10) * intval($key{$i},10);
-		}
-		return intval($v{12},10) == ((11-($t0%11)%10));
-	}
-	static function _biz($arg){
-		$r = '/\s|-/';
-		$key = array(1,3,7,1,3,7,1,3,5,1);
-		$v = preg_replace($r,'',$arg);
-		$t0=0;
-		if(strlen($v)!=10) return false;
-		for($t0 = $i = 0; $i < 8 ; $i++){
-			$t0 += $key[$i] * intval($v{$i},10); 
-		}
-		$t1 = '0'. ($key[8] * intval($v{8},10));
-		$t1 = substr($t1,strlen($t1)-2);
-		$t0 += intval($t1{0},10) + intval($t1{1},10);
-		return intval($v{9},10) == ((10-($t0%10)%10));
-	}
-	static function _length($arg,$len){
-		return strlen($arg)===$len;
-	}
-	static function _range($arg,$s,$e){
-		return $s <= strlen($arg) && strlen($arg) <= $e;
-	}
-	static function _indexOf($arg,$val){
-		return strpos($arg, $val) ? 1 : 0;	
-	}
-	static function valiByFile($filepath){
-		$result = array();
-		$t0 = self::fileR($filepath);
-		$t0 = explode("\n",$t0);
-		for( $i = 0, $j = count($t0) ; $i < $j ; $i++ ){
-			$t1 = explode('=', trim( $t0[$i] ) );
-			if(self::_indexOf(trim( $t1[0] ) ,',')){
-				$p = explode (',', $t1[0]);
-				for($k = 0, $l = count($p) ; $k < $l ; $k++){
-					if( self::ruleTest( trim($t1[1]), $_REQUEST[trim($p[$k])]) ){
-						$result[trim($p[$k])]= $_REQUEST[trim($p[$k])];
-					}else{ 
-						return 0; 
-					}
-				}
-			}else{
-				if( self::ruleTest( trim($t1[1]), $_REQUEST[trim($t1[0])]) ){
-					$result[trim($t1[0])]= $_REQUEST[trim($t1[0])];
-				}else{ 
-					return 0; 
-				}
-			}
-		}
-		//echo 'print_r';
-		//print_r($result);
-		return $result;
-	}
-	static private function ruleTest($rule,$val){
-		$result = 1;
-		$rule = $rule .',';
-		$rule = explode ( ',', $rule);	
-		for($i=0,$j=count($rule) ; $i < $j ; $i++){
-			if( trim($rule[$i]!='') ){
-				switch( trim($rule[$i]) ){
-					case 'ip'      : $result = $result && self::_ip($val); break;
-					case 'url'     : $result = $result && self::_url($val); break;
-					case 'email'   : $result = $result && self::_email($val); break;
-					case 'korean'  : $result = $result && self::_korean($val); break;
-					case 'alphaL'  : $result = $result && self::_alphaL($val); break;
-					case 'ALPHAU'  : $result = $result && self::_ALPHAU($val); break;
-					case 'num'     : $result = $result && self::_num($val); break;
-					case 'alphanum': $result = $result && self::_alphanum($val); break;
-					case '1alphaL' : $result = $result && self::_1alphaL($val); break;
-					case '1ALPHAU' : $result = $result && self::_1ALPHAU($val); break;
-					case 'float'   : $result = $result && self::_float($val); break;
-					case 'int'     : $result = $result && self::_int($val); break;
-					case 'ssn'     : $result = $result && self::_ssn($val); break;
-					case 'biz'     : $result = $result && self::_biz($val); break;
-					//case 'length'  : $result = $result && self::_length    ($val); break;
-					//case 'range'   : $result = $result && self::_range     ($val); break;
-					//case 'indexOf' : $result = $result && self::_indexOf   ($val); break;	
-				}
-			}
-		}
-		return $result;
-	}
-}
-
-
-class bsError{
-	static private $flag = false;//발생하면 true
-	static private $desc = array();
-	static function occur($key,$description){
-		self::$flag = true;
-		self::$desc[$key]=$description;
-		//array_push(self::$desc,$key,$description);
-	}
-	static function isErr(){
-		return self::$flag;
-	}
-	static function count(){
-		return count(self::$desc);
-	}
-	static function desc($key){
-		return self::$desc[$key];
-	}
-	///에러의 이름을 줘서 등록하고, 찾을지 고민중 ex a00, b00, b01.... 비정의는 etc
-}
-class bsSecure{
-	static function login( $id, $pwd, $tp ){
-		$t0 =  bs::SQL( 'x01','.run' , array('@'.$id) );
-		$dbpwd = '';
-		if($t0)$dbpwd = $t0[0][0];
-		
-		//echo $dbpwd;
-		
-		if($dbpwd === bs::hash($pwd)){ 
-			//login ok
-			$tknTm = ''.bs::datePart('ymdhms');
-			bs::session( 'id' , $id );
-			bs::session( 'idx' , $t0[0][1] );
-			bs::session( 'bsTkn' , bs::hash(bs::ip().$tknTm) );
-			bs::session( 'tknTm' , $tknTm );//idx, uid, nickname
-			bs::ck( 'idx' , $t0[0][1] );
-			bs::ck( 'id' , $t0[0][2] );
-			bs::ck( 'nickname' , $t0[0][3] );
-			bs::ck( 'bsTkn' , bs::hash(bs::ip().$tknTm) );
-			return 200;
-		}else{
-			self::logout();
-			return 401;
-		}
-	}
-	static function logout(){
-		bs::session( 'id' , '' );
-		bs::session( 'bsTkn' , '' );
-		bs::ck( 'id' , '' );
-		bs::ck( 'bsTkn' , '' );
-		bs::ck( 'idx' , '' );
-		bs::ck( 'nickname', '' );
-	}
-	static function loginStatus(){
-		/*if( bs::ck( 'bsTkn' ) === bs::session( 'bsTkn' ) && bs::ck( 'bsTkn' ) === bs::hash(bs::ip().bs::session( 'tknTm' )) ) {  
-			$tknTm = ''.bs::datePart('ymdhms');
-			bs::session( 'bsTkn' , bs::hash( bs::ip().$tknTm ) );
-			bs::session( 'tknTm' , $tknTm );
-			bs::ck( 'bsTkn' , bs::hash(bs::ip().$tknTm) );
-		
-		if(bs::session('id')!=''){
-			return 200;
-		}else{
-			return 401;
-		}
-	}
-	static function getUrl(){
-		$url = $_SERVER["REQUEST_URI"];
-		if(strpos( $url, '?' )){
-			$url = explode( '?', $url );
-			$url = $url[0];
-		}
-		if(!strpos( $url, '.php' )){
-			$url = $url.'index.php';
-		}
-		return $url;
-	}
-}
-
-*/
 ?>
