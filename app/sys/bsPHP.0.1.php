@@ -1,4 +1,20 @@
 <?php
+define( 'ROOT', realpath('').'/' );
+define( 'APP', ROOT.'app/' );
+define( 'SYS', APP.'sys/' );
+//info
+define( 'EXT', '.php' );
+define( 'CONTROLLER_CLASS', 'Controller' );
+define( 'DEFAULT_CONTROLLER', 'index'.EXT );
+define( 'DEFAULT_METHOD', 'index' );
+//path
+define( 'TABLE', 'app/db/table/' );
+define( 'SQL', 'app/db/sql/' );
+define( 'SITE', APP.'sites/'.ID.'/' );
+define( 'CONTROLLER', SITE.'controller/' );
+define( 'VIEW', SITE.'view/' );
+define( 'CONFIG', SITE.'config'.EXT );
+
 class bs{
 	static function route(){
 		if( !isset($_SERVER['REQUEST_URI']) || !isset($_SERVER['SCRIPT_NAME']) ) return;
@@ -422,22 +438,27 @@ class bs{
 			}
 		}
 	}
-	static function db( $key, $url, $id, $pw, $db, $encoding = 'utf8', $isDefault = FALSE ){
-		self::$db[$key] = array( 'key'=>$key, 'conn'=>FALSE, 'url'=>$url, 'id'=>$id, 'pw'=>$pw, 'db'=>$db, 'encoding'=>$encoding );
-		if( $isDefault || $isDefault === NULL ) self::$dbDefault = self::$db[$key];
+	static function db($key){
+		if( !isset(self::$db[$key]) ){
+			$info = self::file( TABLE.$key.'/db.json' );
+			if( $info === FALSE ) return self::err( 31, $key );
+			self::$db[$key] = self::json($info);
+		}
+		self::$dbCurr = $key;
 	}
 	//sql
-	static private $sql = array('@INFO'=>'SHOW FULL COLUMNS FROM @table@');
-	static private $sqlInfo = array();
+	static private $sql = array( '@INFO'=>array( 'SHOW FULL COLUMNS FROM @table@', 'object' ) );
+	static private $sqlInfo = array( '@INFO'=>array( FALSE, FALSE, FALSE ) );
 	static private $sqlKey;
 	static private $sqlTable = array();
 	static $tableInfo = array();
-	static private function sqlTable( $table, $instance ){
+	static private function sqlTable( $table ){
 		if( isset(self::$sqlTable[$table]) ) return self::$sqlTable[$table];
 		$path = TABLE.self::$dbCurr.'/'.$table.'.json';
 		$info = self::file($path);
 		if( $info === FALSE ){
 			$rs = self::query( '@INFO', array( 'table'=>$table ) );
+			echo('<br>--------------------<br>');
 			$info = array();
 			foreach( $rs as $row ){
 				$type = strtolower($row['Type']);
@@ -472,7 +493,8 @@ class bs{
 		if( strpos( $str[0], ':' ) === FALSE ) return $str;
 		$str = explode( ':', $str[0] );
 		$meta = explode( '.', $str[1] );
-		$vali = self::sqlTable( $meta[0], $this );
+		$vali = self::sqlTable($meta[0]);
+		echo('<br>**'.substr( $meta[1], 0, -1 ).':'.$vali[substr( $meta[1], 0, -1 )].':'.count($vali).'<br>');
 		self::$sqlInfo[self::$sqlKey][substr( $str[0], 1 )] = $vali[substr( $meta[1], 0, -1 )];
 		return $str[0].'@';
 	}
@@ -522,6 +544,7 @@ class bs{
 		}
 		if( !isset(self::$sqlInfo[$key]) ) self::$sqlInfo[$key] = array();
 		self::$sqlKey = $key;
+		echo('--'.$key.':'.$type.':'.$query);
 		self::$sql[$key] = array( trim(preg_replace_callback( '/@[^@]+@/', 'bs::sqlParse', $query )), $type );
 	}
 	static function sql( $file, $key = NULL ){
@@ -535,6 +558,7 @@ class bs{
 					$k = strpos( $sql[$i], "\r" );
 					if( $k === FALSE ) return;
 				}
+				echo(trim(substr( $sql[$i], 0, $k )).':'.trim(substr( $sql[$i], $k + 1 )).'<br>');
 				self::sqlAdd( trim(substr( $sql[$i], 0, $k )), trim(substr( $sql[$i], $k + 1 )) );
 			}
 		}
@@ -546,7 +570,7 @@ class bs{
 	static function query( $key, $data = NULL, $db = NULL ){//40
 		if( !isset(self::$sql[$key]) ) return self::err( 40, $key );
 		$query = self::$sql[$key][0];
-		$isDML = strpos( strtolower(substr( $query, 0, 5 )), 'select' ) === FALSE;
+		$isDML = preg_match( '/^(insert|update|delete|truncate)/', $query );
 		if( $data === NULL ) $data = $_POST;
 		if( count(self::$sqlInfo[$key]) > 0 ){
 			if( count($data) == 0 ){
@@ -563,15 +587,16 @@ class bs{
 					return FALSE;
 				}
 				$v = mysql_real_escape_string($data[$k]);
-				array_push( $validation, $k, $v, $info[2] );
+				if( $info[2] ) array_push( $validation, $k, $v, $info[2] );
 				if( $info[0] === TRUE ) $v = "'".str_replace( "'", "''", $v )."'";
 				$query = str_replace( '@'.$k.'@', $v, $query );
 			}
-			if( !self::vali( $validation ) ){
+			if( count($validation) > 0 && !self::vali( $validation ) ){
 				self::$queryError = 'VALI:'.self::$valiError;
 				return FALSE;
 			}
 		}
+		echo('Query::'.$query);
 		$rs = mysql_query( $query, self::dbOpen($key) );
 		if( $rs === TRUE ){
 			self::$queryCount = mysql_affected_rows();
