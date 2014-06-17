@@ -8,12 +8,17 @@ define( 'CONTROLLER_CLASS', 'Controller' );
 define( 'DEFAULT_CONTROLLER', 'index'.EXT );
 define( 'DEFAULT_METHOD', 'index' );
 //path
-define( 'TABLE', 'app/db/table/' );
-define( 'SQL', 'app/db/sql/' );
+define( 'DB', 'app/db/' );
 define( 'SITE', APP.'sites/'.ID.'/' );
 define( 'CONTROLLER', SITE.'controller/' );
 define( 'VIEW', SITE.'view/' );
 define( 'CONFIG', SITE.'config'.EXT );
+//application
+define( 'APPLICATION', 'localhost,wmp,wmp12#$,bswmp0' );
+define( 'APPLICATION_TABLE', 'CREATE TABLE IF NOT EXISTS application(k varchar(255)NOT NULL,v varchar(20000)NOT NULL,PRIMARY KEY(k))ENGINE=MEMORY DEFAULT CHARSET=utf8');
+define( 'APPLICATION_GET', "select v from application where k='@k@'" );
+define( 'APPLICATION_SET', "insert into application(k,v)values('@k@','@v@')on duplicate key update v='@v@'" );
+define( 'APPLICATION_DEL', "delete from application where k='@k@'" );
 
 class bs{
 	static function route(){
@@ -249,7 +254,7 @@ class bs{
 	static function uuid(){return md5(com_create_guid());}
 	static function encode($v){return urlencode(trim($v));}
 	static function decode($v){return urldecode(trim($v));}
-	static function json( $v, $isDecode = FALSE ){return $isEncode ? json_decode( $v, true ) : json_encode( $v, 256 );}
+	static function json( $v, $isDecode = TRUE ){return $isDecode ? json_decode( $v, true ) : json_encode( $v, 256 );}
 	static private $xmlCache = array();
 	static function xml( $xml, $key = FALSE ){
 		if( isset(self::$xmlCache[$xml]) ) $t0 = self::$xmlCache[$xml];
@@ -405,24 +410,44 @@ class bs{
 			}
 		}else return time();
 	}
+	//application
+	static private $applicationConn = NULL;
+	static private function applicationConn(){
+		if( !APPLICATION ) return FALSE;
+		if( !self::$applicationConn ){
+			$info = explode( ',', APPLICATION );
+			$conn = mysql_connect( $info[0], $info[1], $info[2] );
+			if( !$conn ) return FALSE;
+			mysql_select_db( $info[3], $conn );
+			mysql_query( APPLICATION_TABLE, $conn );
+			self::$applicationConn = $conn;
+		}
+		 return self::$applicationConn;
+	}
+	static function application($k){
+		$conn = self::applicationConn();
+		if( !$conn ) return self::err( 1000, '' );
+		$j = func_num_args();
+		if( $j == 1 ){
+			$row = mysql_fetch_row(mysql_query( str_replace( '@k@', mysql_real_escape_string($k), APPLICATION_GET ), $conn ));
+			return $row[0];
+		}else{
+			$arg = func_get_args();
+			$k = mysql_real_escape_string($k);
+			return mysql_query( 
+				$arg[1] === NULL ? str_replace( '@k@', $k, APPLICATION_DEL ) : str_replace( '@v@', mysql_real_escape_string($arg[1]), str_replace( '@k@', $k, APPLICATION_SET ) ), 
+				$conn 
+			);
+		}
+	}
 	//db
 	static private $db = array();
-	static private $dbDefault = NULL;
 	static private $dbCurr = NULL;
-	static private function dbOpen( $key = NULL ){//30
-		if( $key === NULL ){
-			$key = self::$dbDefault;
-			if( !isset(self::$db[$key]) ){
-				self::err( 30, $key );
-				return FALSE;
-			}
-		}
-		self::$dbCurr = $key;
-		$d = &self::$db[$key];
+	static private function dbOpen(){
+		$d = &self::$db[self::$dbCurr];
 		if( !$d['conn'] ){
 			$d['conn'] = mysql_connect( $d['url'], $d['id'], $d['pw'] );
 			$encoding = $d['encoding'];
-			mysql_query('SET NAMES euckr');
 			mysql_select_db( $d['db'], $d['conn'] );
 			mysql_query('set session character_set_connection='.$encoding.';');
 			mysql_query('set session character_set_results='.$encoding.';');
@@ -430,23 +455,24 @@ class bs{
 		}
 		return $d['conn'];
 	}
-	static private function dbClose( $key = NULL ){
+	static private function dbClose(){
 		foreach( self::$db as $k=>$v ){
-			if( $v['conn'] !== FALSE ){
+			if( isset($v['conn']) &&  $v['conn'] !== FALSE ){
 				mysql_close($v['conn']);
 				$v['conn'] = FALSE;
 			}
 		}
 	}
-	static function db($key){
+	static function db($key){//3000
 		if( !isset(self::$db[$key]) ){
-			$info = self::file( TABLE.$key.'/db.json' );
-			if( $info === FALSE ) return self::err( 31, $key );
+			$info = self::file( DB.$key.'/db.json' );
+			if( $info === FALSE ) return self::err( 3000, DB.$key.'/db.json<br>' );
 			self::$db[$key] = self::json($info);
 		}
 		self::$dbCurr = $key;
 	}
 	//sql
+	static private $sqlJSON = array();
 	static private $sql = array( '@INFO'=>array( 'SHOW FULL COLUMNS FROM @table@', 'object' ) );
 	static private $sqlInfo = array( '@INFO'=>array( FALSE, FALSE, FALSE ) );
 	static private $sqlKey;
@@ -454,7 +480,7 @@ class bs{
 	static $tableInfo = array();
 	static private function sqlTable( $table ){
 		if( isset(self::$sqlTable[$table]) ) return self::$sqlTable[$table];
-		$path = TABLE.self::$dbCurr.'/'.$table.'.json';
+		$path = DB.self::$dbCurr.'/tables/'.$table.'.json';
 		$info = self::file($path);
 		if( $info === FALSE ){
 			$rs = self::query( '@INFO', array( 'table'=>$table ) );
@@ -498,12 +524,18 @@ class bs{
 		self::$sqlInfo[self::$sqlKey][substr( $str[0], 1 )] = $vali[substr( $meta[1], 0, -1 )];
 		return $str[0].'@';
 	}
-	static private function sqlAdd( $key, $query ){//40
-		if( $query[0] == ':' ){
+	static private function sqlAdd( $key ){//4000
+		if( !isset(self::$sqlJSON[$key]) ) return FALSE;
+		$query = self::$sqlJSON[$key];
+		if( gettype($query) == 'array' ){
+			$type = $query['type'];
+			$query = $query['query'];
+		}else $type = 'object';
+		if( $query[0] == '@' ){
 			$str = explode( ' ', $query );
 			$table = $str[1];
 			switch( $str[0] ){
-			case':insert':
+			case'@insert':
 				$insert = array();
 				$values = array();
 				for( $i = 2, $j = count($str) ; $i < $j ; $i++ ){
@@ -513,7 +545,7 @@ class bs{
 				}
 				$query = 'insert into '.$table.'('.implode( ',', $insert ).')values('.implode( ',', $values ).')';
 				break;
-			case':update':
+			case'@update':
 				$values = array();
 				$where = array();
 				$w = false;
@@ -525,7 +557,7 @@ class bs{
 				}
 				$query = 'update '.$table.' set '.implode( ',', $values ). ' where '.implode( ' and ', $where );
 				break;
-			case':delete':
+			case'@delete':
 				$where = array();
 				for( $i = 3, $j = count($str) ; $i < $j ; $i++ ){
 					$token = explode( ':', $str[$i] );
@@ -533,44 +565,34 @@ class bs{
 				}
 				$query = 'delete from '.$table.' where '.implode( ' and ', $where );
 				break;
-			default: return self::err( 40, $str[0] );
+			default: return self::err( 4001, $str[0] );
 			}
-		}
-		if( strpos( $key, ':' ) === FALSE ) $type = 'object';
-		else{
-			$key = explode( ':', $key );
-			$type = strtolower(trim($key[1]));
-			$key = trim($key[0]);
 		}
 		if( !isset(self::$sqlInfo[$key]) ) self::$sqlInfo[$key] = array();
 		self::$sqlKey = $key;
 		echo('--'.$key.':'.$type.':'.$query);
-		self::$sql[$key] = array( trim(preg_replace_callback( '/@[^@]+@/', 'bs::sqlParse', $query )), $type );
+		self::$sql[$key] = array( trim(preg_replace_callback( '/@[^@]+@/', 'bs::sqlParse', $query )), preg_match( '/^(insert|update|delete|truncate)/', $query ), $type );
 	}
-	static function sql( $file, $key = NULL ){
-		$conn = self::dbOpen($key);
-		$sql = self::file(SQL.$file);
-		if( $sql !== FALSE ){
-			$sql = explode( '--', $sql );
-			for( $i = 1, $j = count($sql) ; $i < $j ; $i++ ){
-				$k = strpos( $sql[$i], "\n" );
-				if( $k === FALSE ){
-					$k = strpos( $sql[$i], "\r" );
-					if( $k === FALSE ) return;
-				}
-				echo(trim(substr( $sql[$i], 0, $k )).':'.trim(substr( $sql[$i], $k + 1 )).'<br>');
-				self::sqlAdd( trim(substr( $sql[$i], 0, $k )), trim(substr( $sql[$i], $k + 1 )) );
-			}
+	static function sql($file){
+		$sql = FALSE;
+		if( APPLICATION !== FALSE ) $sql = self::application($file);
+		if( !$sql ){
+			$sql = self::file(DB.self::$dbCurr.'/sql/'.$file.'.json');
+			if( $sql === FALSE ) return self::err( 4000, $file );
+			if( APPLICATION !== FALSE ) self::application( $file, $sql );
 		}
+		foreach( self::json($sql) as $k=>$v ) self::$sqlJSON[trim($k)] = trim($v);
 	}
 	//query
 	static $queryError = NULL;
 	static $queryCount = 0;
 	static $queryInsertID = 0;
-	static function query( $key, $data = NULL, $db = NULL ){//40
-		if( !isset(self::$sql[$key]) ) return self::err( 40, $key );
+	static function query( $key, $data = NULL, $db = NULL ){//5000
+		if( !isset(self::$sql[$key]) ){
+			if( !self::sqlAdd($key) ) return self::err( 5000, $key );
+		}
 		$query = self::$sql[$key][0];
-		$isDML = preg_match( '/^(insert|update|delete|truncate)/', $query );
+		$isDML = self::$sql[$key][1];
 		if( $data === NULL ) $data = $_POST;
 		if( count(self::$sqlInfo[$key]) > 0 ){
 			if( count($data) == 0 ){

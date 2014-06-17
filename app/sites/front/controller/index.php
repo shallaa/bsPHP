@@ -103,7 +103,8 @@ class Controller{
 	}
 	//db
 	public function db(){
-		bs::sql('member.sql');
+		bs::db('local');
+		bs::sql('member');
 	}
 }
 ?>
