@@ -1,0 +1,7 @@
+{
+	'url':'localhost',
+	'id':'userid',
+	'pw':'password',
+	'db':'database',
+	'encoding':'utf8'
+}
