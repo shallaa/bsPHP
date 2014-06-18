@@ -440,12 +440,22 @@ class bs{
 			);
 		}
 	}
+	static function appFile( $k, $file ){
+		$data = FALSE;
+		if( APPLICATION !== FALSE ) $data = self::application($k);
+		if( !$data ){
+			$data = self::file($file);
+			if( $data === FALSE ) return FALSE;
+			if( APPLICATION !== FALSE ) self::application( $k, $data );
+		}
+		return $data;
+	}
 	//db
 	static private $db = array();
 	static private $dbCurr = NULL;
 	static private function dbOpen(){
 		$d = &self::$db[self::$dbCurr];
-		if( !$d['conn'] ){
+		if( !isset($d['conn']) || !$d['conn'] ){
 			$d['conn'] = mysql_connect( $d['url'], $d['id'], $d['pw'] );
 			$encoding = $d['encoding'];
 			mysql_select_db( $d['db'], $d['conn'] );
@@ -464,63 +474,59 @@ class bs{
 		}
 	}
 	static function db($key){//3000
-		if( !isset(self::$db[$key]) ){
-			$info = self::file( DB.$key.'/db.json' );
-			if( $info === FALSE ) return self::err( 3000, DB.$key.'/db.json<br>' );
-			self::$db[$key] = self::json($info);
-		}
+		if( !isset(self::$db[$key]) ) self::$db[$key] = self::json(self::appFile( '@BS@'.self::$dbCurr.'.db:'.$key, DB.$key.'/db.json' ));
 		self::$dbCurr = $key;
 	}
 	//sql
 	static private $sqlJSON = array();
-	static private $sql = array( '@INFO'=>array( 'SHOW FULL COLUMNS FROM @table@', 'object' ) );
-	static private $sqlInfo = array( '@INFO'=>array( FALSE, FALSE, FALSE ) );
+	static private $sql = array( '@INFO'=>array( 'SHOW FULL COLUMNS FROM @table@', 0, 'object' ) );
+	static private $sqlInfo = array( '@INFO'=>array( 'table'=>array( FALSE, FALSE, FALSE ) ) );
 	static private $sqlKey;
 	static private $sqlTable = array();
 	static $tableInfo = array();
 	static private function sqlTable( $table ){
-		if( isset(self::$sqlTable[$table]) ) return self::$sqlTable[$table];
-		$path = DB.self::$dbCurr.'/tables/'.$table.'.json';
-		$info = self::file($path);
-		if( $info === FALSE ){
-			$rs = self::query( '@INFO', array( 'table'=>$table ) );
-			echo('<br>--------------------<br>');
-			$info = array();
-			foreach( $rs as $row ){
-				$type = strtolower($row['Type']);
-				$isStr = FALSE;
-				$validation = '';
-				$comment = preg_replace( '/\/[*](.+)[*]\//', '$1', $row['Comment'] );
-				if( $comment == '/**/' ) $comment = '';
-				if( strpos( $type, 'char' ) !== FALSE ){
-					$isStr = TRUE;
-					if( strpos( $type, 'max_length' ) === FALSE ) $validation .= 'max_length['.substr( $type, strpos( $type, '(' ) + 1, -1 ).']';
-				}else if( strpos( $type, 'text' ) !== FALSE || strpos( $type, 'blob' ) !== FALSE || strpos( $type, 'binary' ) !== FALSE || strpos( $type, 'enum' ) !== FALSE || strpos( $type, 'set' ) !== FALSE ){
-					$isStr = TRUE;
-				}else if( strpos( $type, 'int' ) !== FALSE || strpos( $type, 'timestamp' ) !== FALSE || strpos( $type, 'year' ) !== FALSE ){
-					if( strpos( $type, 'integer' ) === FALSE ) $validation .= 'integer';
-				}else if( strpos( $type, 'decimal' ) !== FALSE || strpos( $type, 'float' ) !== FALSE || strpos( $type, 'double' ) !== FALSE || strpos( $type, 'real' ) !== FALSE ){
-					if( strpos( $type, 'decimal' ) === FALSE ) $validation .= 'decimal';
+		if( !isset(self::$sqlTable[$table]) ){
+			$info = self::appFile( $appKey = '@BS@'.self::$dbCurr.'.table:'.$table, $path = DB.self::$dbCurr.'/table/'.$table.'.json' );
+			if( $info === FALSE ){
+				$rs = self::query( '@INFO', array( 'table'=>$table ) );
+				$info = array();
+				for( $i = 0, $j = count($rs) ; $i < $j ; $i++ ){
+					$row = $rs[$i];
+					$type = strtolower($row->Type);
+					$isStr = FALSE;
+					$validation = '';
+					$comment = preg_replace( '/\/[*](.+)[*]\//', '$1', $row->Comment );
+					if( $comment == '/**/' ) $comment = '';
+					if( strpos( $type, 'char' ) !== FALSE ){
+						$isStr = TRUE;
+						if( strpos( $type, 'max_length' ) === FALSE ) $validation .= 'max_length['.substr( $type, strpos( $type, '(' ) + 1, -1 ).']';
+					}else if( strpos( $type, 'text' ) !== FALSE || strpos( $type, 'blob' ) !== FALSE || strpos( $type, 'binary' ) !== FALSE || strpos( $type, 'enum' ) !== FALSE || strpos( $type, 'set' ) !== FALSE ){
+						$isStr = TRUE;
+					}else if( strpos( $type, 'int' ) !== FALSE || strpos( $type, 'timestamp' ) !== FALSE || strpos( $type, 'year' ) !== FALSE ){
+						if( strpos( $type, 'integer' ) === FALSE ) $validation .= 'integer';
+					}else if( strpos( $type, 'decimal' ) !== FALSE || strpos( $type, 'float' ) !== FALSE || strpos( $type, 'double' ) !== FALSE || strpos( $type, 'real' ) !== FALSE ){
+						if( strpos( $type, 'decimal' ) === FALSE ) $validation .= 'decimal';
+					}
+					$info[$row->Field] = array(
+						$validation.( $validation !== '' && $comment !== '' ? '|' : '' ).$comment,
+						$isStr,
+						strtolower($row->Extra) === 'auto_increment' ? TRUE : FALSE,
+						strtolower($row->Null) === 'yes' ? TRUE : FALSE,
+						$isStr ? $row->Default : intval($row->Default, 10)
+					);
 				}
-				$info[$row['Field']] = array(
-					$validation.( $validation !== '' && $comment !== '' ? '|' : '' ).$comment,
-					$isStr,
-					strtolower($row['Extra']) === 'auto_increment' ? TRUE : FALSE,
-					strtolower($row['Null']) === 'yes' ? TRUE : FALSE,
-					$isStr ? $row['Default'] : intval($row['Default'], 10)
-				);
+				self::file( $path, json_encode( $info, 256 ) );
+				if( APPLICATION ) self::application( $appKey, $info );
 			}
-			self::file( $path, json_encode( $info, 256 ) );
-		}else $info = json_decode( $info, true );
-		self::$sqlTable[$table] = $info;
-		return $info;
+			self::$sqlTable[$table] = $info = json_decode( $info, true );
+		}
+		return self::$sqlTable[$table];
 	}
 	static function sqlParse($str){
 		if( strpos( $str[0], ':' ) === FALSE ) return $str;
 		$str = explode( ':', $str[0] );
 		$meta = explode( '.', $str[1] );
 		$vali = self::sqlTable($meta[0]);
-		echo('<br>**'.substr( $meta[1], 0, -1 ).':'.$vali[substr( $meta[1], 0, -1 )].':'.count($vali).'<br>');
 		self::$sqlInfo[self::$sqlKey][substr( $str[0], 1 )] = $vali[substr( $meta[1], 0, -1 )];
 		return $str[0].'@';
 	}
@@ -570,27 +576,18 @@ class bs{
 		}
 		if( !isset(self::$sqlInfo[$key]) ) self::$sqlInfo[$key] = array();
 		self::$sqlKey = $key;
-		echo('--'.$key.':'.$type.':'.$query);
 		self::$sql[$key] = array( trim(preg_replace_callback( '/@[^@]+@/', 'bs::sqlParse', $query )), preg_match( '/^(insert|update|delete|truncate)/', $query ), $type );
+		return TRUE;
 	}
-	static function sql($file){
-		$sql = FALSE;
-		if( APPLICATION !== FALSE ) $sql = self::application($file);
-		if( !$sql ){
-			$sql = self::file(DB.self::$dbCurr.'/sql/'.$file.'.json');
-			if( $sql === FALSE ) return self::err( 4000, $file );
-			if( APPLICATION !== FALSE ) self::application( $file, $sql );
-		}
-		foreach( self::json($sql) as $k=>$v ) self::$sqlJSON[trim($k)] = trim($v);
+	static function sql($key){
+		foreach( self::json(self::appFile( '@BS@'.self::$dbCurr.'.sql:'.$key, DB.self::$dbCurr.'/sql/'.$key.'.json' )) as $k=>$v ) self::$sqlJSON[trim($k)] = trim($v);
 	}
 	//query
 	static $queryError = NULL;
 	static $queryCount = 0;
 	static $queryInsertID = 0;
-	static function query( $key, $data = NULL, $db = NULL ){//5000
-		if( !isset(self::$sql[$key]) ){
-			if( !self::sqlAdd($key) ) return self::err( 5000, $key );
-		}
+	static function query( $key, $data = NULL ){//5000
+		if( !isset(self::$sql[$key]) && !self::sqlAdd($key) ) return self::err( 5000, $key );
 		$query = self::$sql[$key][0];
 		$isDML = self::$sql[$key][1];
 		if( $data === NULL ) $data = $_POST;
@@ -618,7 +615,6 @@ class bs{
 				return FALSE;
 			}
 		}
-		echo('Query::'.$query);
 		$rs = mysql_query( $query, self::dbOpen($key) );
 		if( $rs === TRUE ){
 			self::$queryCount = mysql_affected_rows();
@@ -633,7 +629,7 @@ class bs{
 				self::$queryError = 'NoRecord';
 				return FALSE;
 			}
-			$type = self::$sql[$key][1];
+			$type = self::$sql[$key][2];
 			if( $type == 'object' ){
 				$r = array();
 				while( $row = mysql_fetch_object($rs) ) array_push( $r, $row );
