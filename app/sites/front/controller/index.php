@@ -102,34 +102,17 @@ class Controller{
 		bs::out($v0['test'].gettype($v0['num']).$v0['num']);
 	}
 	//db
-	public function db(){
-		bs::db('local');
-		bs::sql('member');
-		bs::out(
-			'<style>',
-				'table{margin-bottom:30px;border-top:1px solid #000;border-left:1px solid #000}',
-				'td{border-bottom:1px solid #000;border-right:1px solid #000;padding:10px}',
-			'</style>',
-			'<h2>list</h2>',
-			'<table cellpadding="0" cellspacing="0">'
-		);
-		$list = bs::query('list');
-		foreach( $list[0] as $key=>$val ) bs::out( '<td>'.$key.'</td>' );
-		bs::out('</tr>');
-		foreach( $list as $v ){
-			bs::out('<tr>');
-			foreach( $v as $key=>$val ) bs::out( '<td>'.$val.'</td>' );
-			bs::out('</tr>');
+	public function db( $mode = 'list' ){
+		bs::db('local', FALSE );
+		bs::sql('member', FALSE );
+		switch( $mode ){
+		case'list':return bs::view( 'db', FALSE );
+		case'add':
+			bs::query('add');
+			bs::out(bs::json( $_POST, TRUE ));
+			break;
+		
 		}
-		bs::out(
-			'</table>',
-			'<h2>view5</h2>',
-			'<table cellpadding="0" cellspacing="0"><tr>'
-		);
-		foreach( bs::query('view',array('rowid'=>5)) as $v ){
-			foreach( $v as $key=>$val ) bs::out( '<td>'.$key.'='.$val.'</td>' );
-		}
-		bs::out('</tr></table>');
 	}
 }
 ?>

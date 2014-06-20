@@ -8,17 +8,20 @@ define( 'CONTROLLER_CLASS', 'Controller' );
 define( 'DEFAULT_CONTROLLER', 'index'.EXT );
 define( 'DEFAULT_METHOD', 'index' );
 //path
-define( 'DB', 'app/db/' );
+define( 'DB', APP.'db/' );
 define( 'SITE', APP.'sites/'.ID.'/' );
+define( 'CONFIG', SITE.'config'.EXT );
 define( 'CONTROLLER', SITE.'controller/' );
 define( 'VIEW', SITE.'view/' );
-define( 'CONFIG', SITE.'config'.EXT );
+
 //application
-define( 'APPLICATION', 'localhost,wmp,wmp12#$,bswmp0' );
-define( 'APPLICATION_TABLE', 'CREATE TABLE IF NOT EXISTS application(k varchar(255)NOT NULL,v varchar(20000)NOT NULL,PRIMARY KEY(k))ENGINE=MEMORY DEFAULT CHARSET=utf8');
-define( 'APPLICATION_GET', "select v from application where k='@k@'" );
-define( 'APPLICATION_SET', "insert into application(k,v)values('@k@','@v@')on duplicate key update v='@v@'" );
-define( 'APPLICATION_DEL', "delete from application where k='@k@'" );
+define( 'APPLICATION', 'local' );
+define( 'APPLICATION_TABLE', 'application' );
+define( 'APPLICATION_MAX', 20000 );
+define( 'APPLICATION_NEW', 'CREATE TABLE IF NOT EXISTS '.APPLICATION_TABLE.'(k varchar(255)NOT NULL,v varchar(20000)NOT NULL,PRIMARY KEY(k))ENGINE=MEMORY DEFAULT CHARSET=utf8' );
+define( 'APPLICATION_GET', "select v from ".APPLICATION_TABLE." where k='@k@'" );
+define( 'APPLICATION_SET', "insert into ".APPLICATION_TABLE."(k,v)values('@k@','@v@')on duplicate key update v='@v@'" );
+define( 'APPLICATION_DEL', "delete from ".APPLICATION_TABLE." where k='@k@'" );
 
 class bs{
 	static function route(){
@@ -66,10 +69,16 @@ class bs{
 				}else $method = DEFAULT_METHOD;
 			}
 			header('Content-Type: text/html; charset=utf-8');
+			ob_start();
 			self::apply( $controller, $method, $uri );
 			self::end();
+			ob_end_flush();
 		}
 		else echo( '404' );
+	}
+	//view
+	static function view( $key, $cache = TRUE ){
+		eval( '?>'.self::appFile( '@BS@'.ID.'.view:'.$key, VIEW.$key.EXT, $cache ).'<?php ' );
 	}
 	//err
 	static private $debugMode = false;
@@ -93,8 +102,10 @@ class bs{
 	static function file(){//10
 		$arg = func_get_args();
 		if( $arg[0] == '/' ) $arg = substr( $arg[0], 1 );
+		$base = $arg[0];
+		if( strpos( $base, ROOT ) === 0 ) $base = substr( $base, strlen(ROOT) );
 		if( func_num_args() == 1 ){
-			$path = ROOT.$arg[0];
+			$path = ROOT.$base;
 			if( file_exists($path) ){
 				$f = fopen( $path, "r" );
 				if( !$f ) self::err( 10, $arg[0] );
@@ -103,7 +114,7 @@ class bs{
 			}else $t0 = FALSE;
 			return $t0;
 		}else{
-			for( $dir = explode( '/', $arg[0] ), $file = array_pop($dir), $path = ROOT, $i = 0, $j = count($dir) ; $i < $j ; ){
+			for( $dir = explode( '/', $base ), $file = array_pop($dir), $path = ROOT, $i = 0, $j = count($dir) ; $i < $j ; ){
 				$path .= '/'.$dir[$i++];
 				if( !is_dir($path) ) mkdir($path);
 			}
@@ -415,38 +426,47 @@ class bs{
 	static private function applicationConn(){
 		if( !APPLICATION ) return FALSE;
 		if( !self::$applicationConn ){
-			$info = explode( ',', APPLICATION );
-			$conn = mysql_connect( $info[0], $info[1], $info[2] );
+			$info = self::json(self::file(DB.APPLICATION.'/db.json'));
+			$conn = mysql_connect( $info['url'], $info['id'], $info['pw'] );
 			if( !$conn ) return FALSE;
-			mysql_select_db( $info[3], $conn );
-			mysql_query( APPLICATION_TABLE, $conn );
 			self::$applicationConn = $conn;
+			mysql_select_db( $info['db'], $conn );
+			mysql_query( APPLICATION_NEW, $conn );
 		}
 		 return self::$applicationConn;
 	}
-	static function application($k){
+	static function application($key){
 		$conn = self::applicationConn();
 		if( !$conn ) return self::err( 1000, '' );
 		$j = func_num_args();
+		$key = mysql_real_escape_string($key);
 		if( $j == 1 ){
-			$row = mysql_fetch_row(mysql_query( str_replace( '@k@', mysql_real_escape_string($k), APPLICATION_GET ), $conn ));
+			$rs = mysql_query( str_replace( '@k@', $key, APPLICATION_GET ), $conn );
+			if( mysql_num_rows($rs) == 0 ) return FALSE;
+			$row = mysql_fetch_row($rs);
 			return $row[0];
 		}else{
 			$arg = func_get_args();
-			$k = mysql_real_escape_string($k);
+			$v = mysql_real_escape_string($arg[1]);
+			if( APPLICATION_MAX < strlen($v) ) return FALSE;
 			return mysql_query( 
-				$arg[1] === NULL ? str_replace( '@k@', $k, APPLICATION_DEL ) : str_replace( '@v@', mysql_real_escape_string($arg[1]), str_replace( '@k@', $k, APPLICATION_SET ) ), 
+				$arg[1] === NULL ? str_replace( '@k@', $key, APPLICATION_DEL ) : str_replace( '@v@', $v, str_replace( '@k@', $key, APPLICATION_SET ) ), 
 				$conn 
 			);
 		}
 	}
-	static function appFile( $k, $file ){
-		$data = FALSE;
-		if( APPLICATION !== FALSE ) $data = self::application($k);
-		if( !$data ){
+	static function appFile( $key, $file, $cache = TRUE ){
+		if( $cache ){
+			$data = FALSE;
+			if( APPLICATION !== FALSE ) $data = self::application($key);
+			if( !$data ){
+				$data = self::file($file);
+				if( $data === FALSE ) return FALSE;
+				if( APPLICATION !== FALSE ) self::application( $key, $data );
+			}
+		}else{
+			if( APPLICATION ) self::application( $key, NULL );
 			$data = self::file($file);
-			if( $data === FALSE ) return FALSE;
-			if( APPLICATION !== FALSE ) self::application( $k, $data );
 		}
 		return $data;
 	}
@@ -579,8 +599,8 @@ class bs{
 		self::$sql[$key] = array( trim(preg_replace_callback( '/@[^@]+@/', 'bs::sqlParse', $query )), preg_match( '/^(insert|update|delete|truncate)/', $query ), $type );
 		return TRUE;
 	}
-	static function sql($key){
-		foreach( self::json(self::appFile( '@BS@'.self::$dbCurr.'.sql:'.$key, DB.self::$dbCurr.'/sql/'.$key.'.json' )) as $k=>$v ) self::$sqlJSON[trim($k)] = trim($v);
+	static function sql( $key, $cache = TRUE ){
+		foreach( self::json(self::appFile( '@BS@'.self::$dbCurr.'.sql:'.$key, DB.self::$dbCurr.'/sql/'.$key.'.json', $cache )) as $k=>$v ) self::$sqlJSON[trim($k)] = trim($v);
 	}
 	//query
 	static $queryError = NULL;
