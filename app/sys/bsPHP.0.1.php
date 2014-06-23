@@ -270,6 +270,7 @@ class bs{
 	static function encode($v){return urlencode(trim($v));}
 	static function decode($v){return urldecode(trim($v));}
 	static function json( $v, $isDecode = TRUE ){return $isDecode ? json_decode( $v, true ) : json_encode( $v, 256 );}
+	static function jsonEncode( $v ){return json_encode( $v, 256 );}
 	static private $xmlCache = array();
 	static function xml( $xml, $key = FALSE ){
 		if( isset(self::$xmlCache[$xml]) ) $t0 = self::$xmlCache[$xml];
@@ -557,47 +558,11 @@ class bs{
 	static private function sqlAdd( $key ){//4000
 		if( !isset(self::$sqlJSON[$key]) ) return FALSE;
 		$query = self::$sqlJSON[$key];
-		if( gettype($query) == 'array' ){
-			$type = $query['type'];
-			$query = $query['query'];
-		}else $type = 'object';
 		if( $query[0] == '@' ){
-			$str = explode( ' ', $query );
-			$table = $str[1];
-			switch( $str[0] ){
-			case'@insert':
-				$insert = array();
-				$values = array();
-				for( $i = 2, $j = count($str) ; $i < $j ; $i++ ){
-					$token = explode( ':', $str[$i] );
-					array_push( $insert, substr( $token[1], 0, -1 ) );
-					array_push( $values, $token[0].':'.$table.'.'.$token[1] );
-				}
-				$query = 'insert into '.$table.'('.implode( ',', $insert ).')values('.implode( ',', $values ).')';
-				break;
-			case'@update':
-				$values = array();
-				$where = array();
-				$w = false;
-				for( $i = 2, $j = count($str) ; $i < $j ; $i++ ){
-					if( strtolower( $str[$i] ) == 'where' ){ $w = true; continue; }
-					$token = explode( ':', $str[$i] );
-					if( $w ) array_push( $where, substr( $token[1], 0, -1 ).'='.$token[0].':'.$table.'.'.$token[1] );
-					else array_push( $values, substr( $token[1], 0, -1 ).'='.$token[0].':'.$table.'.'.$token[1] );
-				}
-				$query = 'update '.$table.' set '.implode( ',', $values ). ' where '.implode( ' and ', $where );
-				break;
-			case'@delete':
-				$where = array();
-				for( $i = 3, $j = count($str) ; $i < $j ; $i++ ){
-					$token = explode( ':', $str[$i] );
-					array_push( $where, substr( $token[1], 0, -1 ).'='.$token[0].':'.$table.'.'.$token[1] );
-				}
-				$query = 'delete from '.$table.' where '.implode( ' and ', $where );
-				break;
-			default: return self::err( 4001, $str[0] );
-			}
-		}
+			$i = strpos( $query, '@', 1 );
+			$type = trim(substr( $query, 1, $i - 1 ));
+			$query = trim(substr( $query, $i + 1 ));
+		}else $type = 'object';
 		if( !isset(self::$sqlInfo[$key]) ) self::$sqlInfo[$key] = array();
 		self::$sqlKey = $key;
 		self::$sql[$key] = array( trim(preg_replace_callback( '/@[^@]+@/', 'bs::sqlParse', $query )), preg_match( '/^(insert|update|delete|truncate)/', $query ), $type );
@@ -625,26 +590,26 @@ class bs{
 				if( !isset($data[$k]) ){
 					self::$queryError = 'NoData:'.$k;
 					return FALSE;
-				}else if( $info[1] && $isDML ){
+				}/*else if( $info[2] && $isDML ){
 					self::$queryError = 'AI_DML:'.$k;
 					return FALSE;
-				}
+				}*/
 				$v = mysql_real_escape_string($data[$k]);
-				if( $info[2] ){
-					$v = self::vali( $v, $info[2], $data );
+				if( $info[0] ){
+					$v = self::vali( $v, $info[0], $data );
 					if( $v === self::$valiFail ){
 						self::$queryError = 'VALI:'.self::$valiError;
 						return FALSE;
 					}
 				}
-				if( $info[0] === TRUE ) $v = "'".str_replace( "'", "''", $v )."'";
+				if( $info[1] === TRUE ) $v = "'".str_replace( "'", "''", $v )."'";
 				$query = str_replace( '@'.$k.'@', $v, $query );
 			}
 		}
 		$rs = mysql_query( $query, self::dbOpen() );
 		if( $rs === TRUE ){
 			self::$queryCount = mysql_affected_rows();
-			self::$queryInsertID = strpos( strtolower(substr( $query, 0, 5 )), 'insert' ) ? mysql_insert_id() : 0;
+			self::$queryInsertID = strpos( strtolower(substr( $query, 0, 6 )), 'insert' ) !== FALSE ? mysql_insert_id() : 0;
 			return TRUE;
 		}else if( $rs === FALSE ){
 			self::$queryError = 'ERR:'.mysql_error();
@@ -656,24 +621,32 @@ class bs{
 				return FALSE;
 			}
 			$type = self::$sql[$key][2];
-			if( $type == 'object' ){
+			switch( $type ){
+			case'object':
 				$r = array();
 				while( $row = mysql_fetch_object($rs) ) array_push( $r, $row );
-			}else if( $type == 'array' ){
+				return $r;
+			case'array':
 				$r = array();
 				while( $row = mysql_fetch_row($rs) ) array_push( $r, $row );
-			}else if( $type == 'raw' ) return $rs;
-			else if( $type[0] == '[' ){
-				$r = substr( $type, 1, -1 );
-				if( self::isnum($r) ){
-					$row = mysql_fetch_row($rs);
-					$r = $row[$r];
-				}else{
-					$row = mysql_fetch_object($rs);
-					$r = $row->{$r};
+				return $r;
+			case'raw':return $rs;
+			case'recordObject':return mysql_fetch_object($rs);
+			case'record':case'recordArray':return mysql_fetch_row($rs);
+			default:
+				if( $type[0] == '[' ){
+					$r = substr( $type, 1, -1 );
+					if( self::isnum($r) ){
+						$row = mysql_fetch_row($rs);
+						$r = $row[$r];
+					}else{
+						$row = mysql_fetch_object($rs);
+						$r = $row->{$r};
+					}
+					return $r;
 				}
+				return self::err( 5001, $type );
 			}
-			return $r;
 		}
 	}
 	//validation

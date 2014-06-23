@@ -90,7 +90,6 @@ class Controller{
 			bs::out( 'no argument : '.bs::apply( $this, 'applyTest' ), $this->assert( bs::apply( $this, 'applyTest' ), 0 ) );
 			bs::out( 'array argument : '.bs::apply( $this, 'applyTest', array( 3, 5 ) ), $this->assert( bs::apply( $this, 'applyTest', array( 3, 5 ) ), 8 ) );
 			bs::out( 'arguments : '.bs::apply( $this, 'applyTest', 3, 5 ), $this->assert( bs::apply( $this, 'applyTest', 3, 5 ), 8 ) );
-			
 		}
 	}
 	public function applyTest( $a = 0, $b = 0 ){
@@ -107,14 +106,8 @@ class Controller{
 		bs::sql('member', FALSE );
 		switch( $mode ){
 		case'list':bs::view( 'db', FALSE ); break;
-		case'del':
-			bs::out(bs::query('del'));
-			break;
-		case'add':
-			bs::query('add');
-			bs::out(bs::json( $_POST, TRUE ));
-			break;
-		
+		case'add':bs::out( bs::query('add') ? bs::jsonEncode(bs::query( 'view', array( 'rowid'=>bs::$queryInsertID ) )) : '' ); break;
+		case'del':case'edit':bs::out( bs::query($mode) ? 1 : '' ); break;
 		}
 	}
 }
