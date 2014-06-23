@@ -44,7 +44,7 @@ bs( function(){
 		var i = this.id.substr(1);
 		switch(this.id.charAt(0)){
 		case'a':
-			data = JSON.parse( bs.post( null, 'index.php/db/add', 'pw', 'aaaaa', 'pwc', 'aaaaa', 'id', bs.Dom('#aid').S('@value'), 'nick', bs.Dom('#anick').S('@value') ) );
+			data = JSON.parse( bs.post( null, '/index.php/db/add', 'pw', 'aaaaa', 'pwc', 'aaaaa', 'id', bs.Dom('#aid').S('@value'), 'nick', bs.Dom('#anick').S('@value') ) );
 			bs.Dom('#list').S('html+',
 				'<tr><td>' + data.no + '</td>' +
 				'<td><input type=\"text\" id=\"id' + data.no + '\" value=\"' + data.id +'\"></td>' +
@@ -53,18 +53,17 @@ bs( function(){
 			);
 			break;
 		case'e':
-			data = JSON.parse( bs.post( null, 'index.php/db/edit', 'no', i, 'id', bs.Dom('#id'+i).S('@value'), 'nick', bs.Dom('#nick'+i).S('@value') ) );
+			data = JSON.parse( bs.post( null, '/index.php/db/edit', 'no', i, 'id', bs.Dom('#id'+i).S('@value'), 'nick', bs.Dom('#nick'+i).S('@value') ) );
 			bs.Dom('#id'+i).S('@value', data.id );
 			bs.Dom('#nick'+i).S('@value', data.nick);
 			break;
 		case'd':
-			JSON.parse( bs.post( null, 'index.php/db/del', 'no', i ) );
+			console.log( i );
+			bs.post( null, 'db/del', 'no', i );
 			bs.Dom('#tr'+i).S(null);
 			break;
 		}
 	});
-	
-
 });
 </script>
 <h2>view5</h2>

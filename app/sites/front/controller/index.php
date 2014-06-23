@@ -106,7 +106,10 @@ class Controller{
 		bs::db('local', FALSE );
 		bs::sql('member', FALSE );
 		switch( $mode ){
-		case'list':return bs::view( 'db', FALSE );
+		case'list':bs::view( 'db', FALSE ); break;
+		case'del':
+			bs::out(bs::query('del'));
+			break;
 		case'add':
 			bs::query('add');
 			bs::out(bs::json( $_POST, TRUE ));

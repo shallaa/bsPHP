@@ -18,7 +18,7 @@ define( 'VIEW', SITE.'view/' );
 define( 'APPLICATION', 'local' );
 define( 'APPLICATION_TABLE', 'application' );
 define( 'APPLICATION_MAX', 20000 );
-define( 'APPLICATION_NEW', 'CREATE TABLE IF NOT EXISTS '.APPLICATION_TABLE.'(k varchar(255)NOT NULL,v varchar(20000)NOT NULL,PRIMARY KEY(k))ENGINE=MEMORY DEFAULT CHARSET=utf8' );
+define( 'APPLICATION_NEW', 'CREATE TABLE IF NOT EXISTS '.APPLICATION_TABLE.'(k varchar(255)NOT NULL,v varchar('.APPLICATION_MAX.')NOT NULL,PRIMARY KEY(k))ENGINE=MEMORY DEFAULT CHARSET=utf8' );
 define( 'APPLICATION_GET', "select v from ".APPLICATION_TABLE." where k='@k@'" );
 define( 'APPLICATION_SET', "insert into ".APPLICATION_TABLE."(k,v)values('@k@','@v@')on duplicate key update v='@v@'" );
 define( 'APPLICATION_DEL', "delete from ".APPLICATION_TABLE." where k='@k@'" );
@@ -30,6 +30,10 @@ class bs{
 		$script = $_SERVER['SCRIPT_NAME'];
 		$uri = substr( $uri, strlen( strpos( $uri, $script ) === 0 ? $script : dirname($script) ) );
 		if( strncmp( $uri, '?/', 2 ) === 0 ) $uri = substr( $uri, 2 );
+		$i = strpos( $uri, '?' );
+		if( $i !== FALSE ) $uri = substr( $uri, 0, $i );
+		$i = strpos( $uri, '&' );
+		if( $i !== FALSE ) $uri = substr( $uri, 0, $i );
 		$parts = preg_split( '#\?#i', $uri, 2 );
 		$uri = $parts[0];
 		if( isset($parts[1]) ){
@@ -71,7 +75,7 @@ class bs{
 			header('Content-Type: text/html; charset=utf-8');
 			ob_start();
 			self::apply( $controller, $method, $uri );
-			self::end();
+			self::dbClose();
 			ob_end_flush();
 		}
 		else echo( '404' );
@@ -493,14 +497,14 @@ class bs{
 			}
 		}
 	}
-	static function db($key){//3000
-		if( !isset(self::$db[$key]) ) self::$db[$key] = self::json(self::appFile( '@BS@'.self::$dbCurr.'.db:'.$key, DB.$key.'/db.json' ));
+	static function db($key, $cache = TRUE ){
+		if( !isset(self::$db[$key]) ) self::$db[$key] = self::json(self::appFile( '@BS@'.self::$dbCurr.'.db:'.$key, DB.$key.'/db.json', $cache ));
 		self::$dbCurr = $key;
 	}
 	//sql
 	static private $sqlJSON = array();
 	static private $sql = array( '@INFO'=>array( 'SHOW FULL COLUMNS FROM @table@', 0, 'object' ) );
-	static private $sqlInfo = array( '@INFO'=>array( 'table'=>array( FALSE, FALSE, FALSE ) ) );
+	static private $sqlInfo = array( '@INFO'=>array( 'table'=>array( FALSE, FALSE, FALSE, FALSE, NULL ) ) );
 	static private $sqlKey;
 	static private $sqlTable = array();
 	static $tableInfo = array();
@@ -626,16 +630,18 @@ class bs{
 					return FALSE;
 				}
 				$v = mysql_real_escape_string($data[$k]);
-				if( $info[2] ) array_push( $validation, $k, $v, $info[2] );
+				if( $info[2] ){
+					$v = self::vali( $v, $info[2], $data );
+					if( $v === self::$valiFail ){
+						self::$queryError = 'VALI:'.self::$valiError;
+						return FALSE;
+					}
+				}
 				if( $info[0] === TRUE ) $v = "'".str_replace( "'", "''", $v )."'";
 				$query = str_replace( '@'.$k.'@', $v, $query );
 			}
-			if( count($validation) > 0 && !self::vali( $validation ) ){
-				self::$queryError = 'VALI:'.self::$valiError;
-				return FALSE;
-			}
 		}
-		$rs = mysql_query( $query, self::dbOpen($key) );
+		$rs = mysql_query( $query, self::dbOpen() );
 		if( $rs === TRUE ){
 			self::$queryCount = mysql_affected_rows();
 			self::$queryInsertID = strpos( strtolower(substr( $query, 0, 5 )), 'insert' ) ? mysql_insert_id() : 0;
@@ -659,16 +665,23 @@ class bs{
 			}else if( $type == 'raw' ) return $rs;
 			else if( $type[0] == '[' ){
 				$r = substr( $type, 1, -1 );
-				$row = self::isnum($r) ? mysql_fetch_row($rs) : mysql_fetch_object($rs);
-				$r = $row[$r];
+				if( self::isnum($r) ){
+					$row = mysql_fetch_row($rs);
+					$r = $row[$r];
+				}else{
+					$row = mysql_fetch_object($rs);
+					$r = $row->{$r};
+				}
 			}
 			return $r;
 		}
 	}
 	//validation
 	static $valiError = NULL;
-	static function vali( $data ){
-		return TRUE;
+	static private $valiFail = array();
+	static private function vali( $v, $validation, $data ){
+		//$v = self::vali( $v, $info[2], $data );
+		return $v; // or self::$valiFail;
 	}
 	/*
 	//upload
