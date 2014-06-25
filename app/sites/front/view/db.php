@@ -8,10 +8,10 @@ body{magin:0;padding:15px}
 table{margin-bottom:30px;border-top:1px solid #999;border-left:1px solid #999}
 td{border-bottom:1px solid #999;border-right:1px solid #999;padding:10px;text-align:center}
 button{width:100px;text-align:center}
-#addErr{color:#f00;font-weight:bold}
+#err{color:#f00;font-weight:bold}
 </style>
-<!--<script src="http://projectbs.github.io/bsJS/bsjs.0.4.js"></script>-->
-<script src="http://www.bsidesoft.com/bs/bsJS/bsjs.0.4.js"></script>
+<script src="http://projectbs.github.io/bsJS/bsjs.0.4.js"></script>
+<!--<script src="http://www.bsidesoft.com/bs/bsJS/bsjs.0.4.js"></script>-->
 </head>
 <body>
 <h2>CRUD Demo</h2>
@@ -34,7 +34,7 @@ foreach( $list as $v ){
 }
 ?>
 </table>
-
+<div id="err"></div>
 <table cellpadding="0" cellspacing="0">
 <tr id="add">
 	<td><input type="text" id="aid"></td>
@@ -44,6 +44,9 @@ foreach( $list as $v ){
 </table>
 <script>
 bs( function(){
+	var base = location.href;
+	base = base.substr( 0, base.lastIndexOf('/') ) + '/db/';
+	console.log( base);
 	(function mk(c){
 		bs.Style.fn( 'key', c, function( self, style, v ){
 			if( v === undefined ) return self[c];
@@ -62,7 +65,7 @@ bs( function(){
 		var i = this.id.substr(1), data;
 		switch(this.id.charAt(0)){
 		case'a':
-			if( data = bs.post( null, 'index.php/db/add', 'pass', 'testpassword', 'id', bs.Dom('#aid').S('@value'), 'nick', bs.Dom('#anick').S('@value') ) ){
+			if( data = bs.post( null, base + 'add', 'pass', 'testpassword', 'id', bs.Dom('#aid').S('@value'), 'nick', bs.Dom('#anick').S('@value') ) ){
 				data = JSON.parse(data);
 				bs.Dom('#list').S( 'html+',
 					'<tr id="tr' + data.no + '"><td>' + data.no + '</td>' +
@@ -77,17 +80,19 @@ bs( function(){
 			bs.Dom('#aid').S( '@value', '' ), 'nick', bs.Dom('#anick').S( '@value', '' ), bs.Dom('#a').S('@disabled', null );
 			break;
 		case'd':
-			if( data = bs.post( null, 'index.php/db/del', 'no', i ) ){
+			if( data = bs.post( null, base + 'del', 'no', i ) ){
 				bs.ANI.style( bs.Dom('#tr'+i).S( 'R', 200, 'G', 255, 'B', 200, 'opacity', 1, 'this' ), 'opacity', 0, 'delay', .5, 'time', 1.5, 'end', dEndOk );
 			}else bs.ANI.style( bs.Dom( bs.Dom(this).S( '@disabled', true, 'html', 'failed', '<' ) ).S( 'R', 255, 'G', 200, 'B', 200, 'this' ), 'G', 255, 'B', 255, 'delay', .5, 'time', 1.5, 'end', dEndFail );
 			break;
 		case'e':
-			if( data = bs.post( null, 'index.php/db/edit', 'no', i, 'id', bs.Dom('#id'+i).S('@value'), 'nick', bs.Dom('#nick'+i).S('@value') ) ){
+			data = bs.post( null, base + 'edit', 'no', i, 'id', bs.Dom('#id'+i).S('@value'), 'nick', bs.Dom('#nick'+i).S('@value') );
+			if( data == '1' ){
 				bs.Dom('#id'+i).S('*value', bs.Dom('#id'+i).S('@value') ), bs.Dom('#nick'+i).S( '*value', bs.Dom('#nick'+i).S('@value') );
 				bs.ANI.style( bs.Dom( '#tr' + i ).S( 'R', 200, 'B', 200, 'G', 255, 'this' ), 'R', 255, 'B', 255, 'delay', .5, 'time', 1.5 );
 			}else{
+				bs.Dom('#err').S('html',data);
 				data = bs.Dom(this);
-				bs.Dom('#id'+i).S('@value', bs.Dom('#id'+i).S('*value') ), bs.Dom('#nick'+i).S( '@value', bs.Dom('#id'+i).S('*value') );
+				bs.Dom('#id'+i).S('@value', bs.Dom('#id'+i).S('*value') ), bs.Dom('#nick'+i).S( '@value', bs.Dom('#nick'+i).S('*value') );
 				data.S( '@disabled', true, 'html', 'failed' );
 				bs.ANI.style( bs.Dom('#tr'+i).S( 'R', 255, 'G', 200, 'B', 200, 'this' ), 'G', 255, 'B', 255, 'delay', .5, 'time', 1.5, 'end', function(){
 					data.S( '@disabled', null, 'html', 'edit' );

@@ -24,6 +24,7 @@ define( 'APPLICATION_SET', "insert into ".APPLICATION_TABLE."(k,v)values('@k@','
 define( 'APPLICATION_DEL', "delete from ".APPLICATION_TABLE." where k='@k@'" );
 
 class bs{
+	static private $controller;
 	static function route(){
 		if( !isset($_SERVER['REQUEST_URI']) || !isset($_SERVER['SCRIPT_NAME']) ) return;
 		$uri = $_SERVER['REQUEST_URI'];
@@ -65,7 +66,7 @@ class bs{
 		if( class_exists(CONTROLLER_CLASS) ){
 			if( file_exists(CONFIG) ) require_once CONFIG;
 			$controller = CONTROLLER_CLASS;
-			$controller = new $controller();
+			self::$controller = $controller = new $controller();
 			if( !$method ){
 				if( method_exists( $controller, $uri[0] ) ){
 					$method = $uri[0];
@@ -590,10 +591,7 @@ class bs{
 				if( !isset($data[$k]) ){
 					self::$queryError = 'NoData:'.$k;
 					return FALSE;
-				}/*else if( $info[2] && $isDML ){
-					self::$queryError = 'AI_DML:'.$k;
-					return FALSE;
-				}*/
+				}
 				$v = mysql_real_escape_string($data[$k]);
 				if( $info[0] ){
 					$v = self::vali( $v, $info[0], $data );
@@ -651,11 +649,94 @@ class bs{
 	}
 	//validation
 	static $valiError = NULL;
-	static private $valiFail = array();
-	static private function vali( $v, $validation, $data ){
-		//$v = self::vali( $v, $info[2], $data );
-		return $v; // or self::$valiFail;
+	static public $valiFail = array();
+	static private $valiRex = array(
+		'valid_email'=>"/^([a-z0-9\+_\-]+)(\.[a-z0-9\+_\-]+)*@([a-z0-9\-]+\.)+[a-z]{2,6}$/ix",
+		'alpha'=>"/^([a-z0-9])+$/i",
+		'alpha_numeric'=>"/^([-a-z0-9_-])+$/i",
+		'alpha_dash'=>"/^([-a-z0-9_-])+$/i",
+		'numeric'=>'/^[\-+]?[0-9]*\.?[0-9]+$/',
+		'integer'=>'/^[\-+]?[0-9]+$/',
+		'decimal'=>'/^[\-+]?[0-9]+\.[0-9]+$/',
+		'is_natural'=>'/^[0-9]+$/',
+		'valid_base64'=>'/[^a-zA-Z0-9\/\+=]/'
+	);
+	static private $valiReplace = array(
+		'prep_for_form'=>array( array( "'", '"', '<', '>' ), array( "&#39;", "&quot;", '&lt;', '&gt;' ) ),
+		'xss_clean'=>array( array('<'), array('&lt;') ),
+		'encode_php_tags'=>array( array( '<?php', '<?PHP', '<?', '?>' ),  array( '&lt;?php', '&lt;?PHP', '&lt;?', '?&gt;' ) )
+	);
+	static function vali( $v, $vali, $data ){
+		$fail = self::$valiFail;
+		for( $vali = explode( '|', $vali ), $i = 0, $j = count($vali) ; $i < $j ; $i++ ){
+			$f = $vali[$i];
+			self::$valiError = $f.'::'.$v;
+			$k = strpos( $f, '[' );
+			if( $k !== FALSE ){
+				$arg = explode( ',', substr( $f, $k + 1, -1 ) );
+				$f = substr( $f, 0, $k );
+			}else $arg = FALSE;
+			switch( $f ){
+			case'required':
+				if( empty($v) ) return $fail;
+				break;
+			case'regex_match':
+				if( !$arg || !$arg[0] || !preg_match( $arg[0], $v ) ) return $fail;
+				break;
+			case'matches':
+				if( !isset($data[$arg[0]]) || $data[$arg[0]] != $v ) return $fail;
+				break;
+			case'valid_email':case'alpha':case'alpha_numeric':case'alpha_dash':case'numeric':case'is_natural':case'decimal':case'valid_base64':
+				if( !preg_match( self::$valiRex[$f], $v ) ) return $fail;
+				break;
+			case'is_numeric':
+				if( !preg_match( self::$valiRex['numeric'], $v ) ) return $fail;
+				break;
+			case'is_natural_no_zero':
+				if( $v == 0 || !preg_match( self::$valiRex['is_natural'], $v ) ) return $fail;
+				break;
+			case'is_unique':
+				if( !isset($data[$arg[0]]) ) return $fail;
+				$arg = explode( '.', $arg[0] );
+				$t0 = mysql_query( 'select count(*)from '.$arg[0].' where '.$arg[1].'='.( self::isnum($v) ? $v : "'".$v."'" ), self::dbOpen() );
+				$t0 = mysql_fetch_row($t0);
+				if( !$t0[0] ) return $fail;
+				break;
+			case'exact_length':case'max_length':case'min_length':
+				$arg = (int)$arg[0];
+				$t0 = function_exists('mb_strlen') ? mb_strlen($v) : strlen($v);
+				if( $f == 'exact_length' ? $t0 != $arg : $f == 'max_length' ? $t0 >= $arg : $t0 <= $arg ) return $fail;
+				break;
+			case'valid_emails':
+				foreach( explode(',', $v ) as $t0 ) if( !preg_match(self::$valiRex['valid_email'], $v ) ) return $fail;
+				break;
+			case'valid_ip':
+				$t0 = strpos( $v, ':' ) !== FALSE ? FILTER_FLAG_IPV6 : strpos($ip, '.') !== FALSE ? FILTER_FLAG_IPV4 : FALSE;
+				if( !$t0 || !filter_var( $v, FILTER_VALIDATE_IP, $t0 ) ) return $fail;
+				break;
+			case'greater_than':case'less_than':
+				if( !preg_match( self::$valiRex['numeric'], $v ) ) return $fail;
+				$arg = (int)$arg[0];
+				if( $f == 'greater_than' ? $v <= $arg : $v >= $arg ) return $fail;
+				break;
+			case'prep_for_form': $v = stripslashes($v);
+			case'xss_clean':case'encode_php_tags':
+				$v = str_replace( self::$valiReplace[$f][0], self::$valiReplace[$f][1], $v );
+				break;
+			case'prep_url':
+				if( substr( $v, 0, 7 ) != 'http://' && substr( $v, 0, 8 ) != 'https://' ) $v = 'http://'.$v;
+				break;
+			default:
+				$arg = array($v);
+				if( function_exists($f) ) $v = self::apply( FALSE, $f, $arg );
+				else if( method_exists( self::$controller, $f ) ) $v = self::apply( self::$controller, $f, $arg );
+				else if( method_exists( 'bs', $f ) ) $v = self::apply( FALSE, 'bs::'.$f, $arg );
+				if( $v === FALSE ) return $fail;
+			}
+		}
+		return $v;
 	}
+	
 	/*
 	//upload
 	static private $upath = '';

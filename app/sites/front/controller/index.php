@@ -14,6 +14,21 @@ class Controller{
 		bs::out( '<h1>Test Suite</h1>',
 			'<div>module : '.( $m ? $m : 'all' ).'</div>'
 		);
+		//vali
+		if( !$m || strpos( $m, 'vali' ) !== FALSE ){
+			$this->subTitle('Validation');
+			$data = array();
+			$v0 = array('  ---script>  ', 'aaa' );
+			$v1 = array('max_length[32]|trim|min_length[6]|xss_clean', 'max_length[32]|trim|min_length[6]|xss_clean');
+			$v2 = array('---script>', 'aaa' );
+			for( $i = 0, $j = count($v0) ; $i < $j ; $i++ ){
+				$v3 = bs::vali( $v0[$i], $v1[$i], $data );
+				if( $v3 == bs::$valiFail ) $v3 = FALSE;
+				bs::out( $v1[$i].' : "'.str_replace( ' ', '&nbsp;', $v0[$i] ).'" = "'.str_replace( ' ', '&nbsp;', $v3 ).'"', $this->assert( $v2[$i], $v3 ) );
+				if( $v3 === FALSE ) bs::out( '<div>error:'.bs::$valiError.'</div>' );
+			}
+		}
+		
 		
 		//cookie
 		if( !$m || strpos( $m, 'ck' ) !== FALSE ){
@@ -102,12 +117,12 @@ class Controller{
 	}
 	//db
 	public function db( $mode = 'list' ){
-		bs::db('local', FALSE );
-		bs::sql('member', FALSE );
+		bs::db('local');//, FALSE
+		bs::sql('member');//, FALSE 
 		switch( $mode ){
-		case'list':bs::view( 'db', FALSE ); break;
-		case'add':bs::out( bs::query('add') ? bs::jsonEncode(bs::query( 'view', array( 'rowid'=>bs::$queryInsertID ) )) : '' ); break;
-		case'del':case'edit':bs::out( bs::query($mode) ? 1 : '' ); break;
+		case'list':bs::view('db', FALSE); break;//
+		case'add':bs::out( bs::query('add') ? bs::jsonEncode(bs::query( 'view', array( 'rowid'=>bs::$queryInsertID ) )) : '{"err":"'.bs::$queryError.'"}' ); break;
+		case'del':case'edit':bs::out( bs::query($mode) ? '1' : bs::$queryError ); break;
 		}
 	}
 }
