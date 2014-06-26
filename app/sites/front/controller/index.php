@@ -17,9 +17,9 @@ class Controller{
 		//vali
 		if( !$m || strpos( $m, 'vali' ) !== FALSE ){
 			$this->subTitle('Validation');
-			$data = array();
+			$data = array('test'=>'aaa');
 			$v0 = array('  ---script>  ', 'aaa' );
-			$v1 = array('max_length[32]|trim|min_length[6]|xss_clean', 'max_length[32]|trim|min_length[6]|xss_clean');
+			$v1 = array('max_length[32]|trim|min_length[6]|xss_clean', 'matches[test]');
 			$v2 = array('---script>', 'aaa' );
 			for( $i = 0, $j = count($v0) ; $i < $j ; $i++ ){
 				$v3 = bs::vali( $v0[$i], $v1[$i], $data );

@@ -11,7 +11,6 @@ button{width:100px;text-align:center}
 #err{color:#f00;font-weight:bold}
 </style>
 <script src="http://projectbs.github.io/bsJS/bsjs.0.4.js"></script>
-<!--<script src="http://www.bsidesoft.com/bs/bsJS/bsjs.0.4.js"></script>-->
 </head>
 <body>
 <h2>CRUD Demo</h2>
@@ -65,8 +64,11 @@ bs( function(){
 		var i = this.id.substr(1), data;
 		switch(this.id.charAt(0)){
 		case'a':
-			if( data = bs.post( null, base + 'add', 'pass', 'testpassword', 'id', bs.Dom('#aid').S('@value'), 'nick', bs.Dom('#anick').S('@value') ) ){
-				data = JSON.parse(data);
+			data = JSON.parse(bs.post( null, base + 'add', 'pass', 'testpassword', 'pwc', 'testpassword', 'id', bs.Dom('#aid').S('@value'), 'nick', bs.Dom('#anick').S('@value') ));
+			if( data.err ){
+				bs.Dom('#err').S( 'html', data.err );
+				bs.Dom('#a').S('@disabled', true ), bs.ANI.style( bs.Dom('#add').S( 'R', 255, 'G', 200, 'B', 200, 'this' ),  'G', 255, 'B', 255, 'delay', .5, 'time', 1.5 );
+			}else{
 				bs.Dom('#list').S( 'html+',
 					'<tr id="tr' + data.no + '"><td>' + data.no + '</td>' +
 					'<td><input type="text" id="id' + data.no + '" value="' + data.id +'" data-value="' + data.id +'"></td>' +
@@ -76,13 +78,17 @@ bs( function(){
 					'</tr>'
 				);
 				bs.ANI.style( bs.Dom( '#tr' + data.no ).S( 'R', 200, 'B', 200, 'G', 255, 'this' ), 'R', 255, 'B', 255, 'delay', .5, 'time', 1.5 );
-			}else bs.Dom('#a').S('@disabled', true ), bs.ANI.style( bs.Dom('#add').S( 'R', 255, 'G', 200, 'B', 200, 'this' ),  'G', 255, 'B', 255, 'delay', .5, 'time', 1.5 );
+			}
 			bs.Dom('#aid').S( '@value', '' ), 'nick', bs.Dom('#anick').S( '@value', '' ), bs.Dom('#a').S('@disabled', null );
 			break;
 		case'd':
-			if( data = bs.post( null, base + 'del', 'no', i ) ){
+			data = bs.post( null, base + 'del', 'no', i );
+			if( data == '1' ){
 				bs.ANI.style( bs.Dom('#tr'+i).S( 'R', 200, 'G', 255, 'B', 200, 'opacity', 1, 'this' ), 'opacity', 0, 'delay', .5, 'time', 1.5, 'end', dEndOk );
-			}else bs.ANI.style( bs.Dom( bs.Dom(this).S( '@disabled', true, 'html', 'failed', '<' ) ).S( 'R', 255, 'G', 200, 'B', 200, 'this' ), 'G', 255, 'B', 255, 'delay', .5, 'time', 1.5, 'end', dEndFail );
+			}else{
+				bs.Dom('#err').S( 'html', data );
+				bs.ANI.style( bs.Dom( bs.Dom(this).S( '@disabled', true, 'html', 'failed', '<' ) ).S( 'R', 255, 'G', 200, 'B', 200, 'this' ), 'G', 255, 'B', 255, 'delay', .5, 'time', 1.5, 'end', dEndFail );
+			}
 			break;
 		case'e':
 			data = bs.post( null, base + 'edit', 'no', i, 'id', bs.Dom('#id'+i).S('@value'), 'nick', bs.Dom('#nick'+i).S('@value') );
@@ -90,7 +96,7 @@ bs( function(){
 				bs.Dom('#id'+i).S('*value', bs.Dom('#id'+i).S('@value') ), bs.Dom('#nick'+i).S( '*value', bs.Dom('#nick'+i).S('@value') );
 				bs.ANI.style( bs.Dom( '#tr' + i ).S( 'R', 200, 'B', 200, 'G', 255, 'this' ), 'R', 255, 'B', 255, 'delay', .5, 'time', 1.5 );
 			}else{
-				bs.Dom('#err').S('html',data);
+				bs.Dom('#err').S( 'html', data );
 				data = bs.Dom(this);
 				bs.Dom('#id'+i).S('@value', bs.Dom('#id'+i).S('*value') ), bs.Dom('#nick'+i).S( '@value', bs.Dom('#nick'+i).S('*value') );
 				data.S( '@disabled', true, 'html', 'failed' );

@@ -503,6 +503,29 @@ class bs{
 		if( !isset(self::$db[$key]) ) self::$db[$key] = self::json(self::appFile( '@BS@'.self::$dbCurr.'.db:'.$key, DB.$key.'/db.json', $cache ));
 		self::$dbCurr = $key;
 	}
+	static function dbSync( $master, $slaves, $tables = NULL ){
+		if( !is_array($slaves) ) $slaves = array($slaves);
+		if( !$tables ){
+			$tables = array();
+			self::db($master);
+			$rs = mysql_query( 'show tables', self::dbOpen() );
+			while( $row = mysql_fetch_array($rs) ) array_push( $tables, $row[0] );
+		}else if( !is_array($tables) ) $tables = array($tables);
+		for( $i = 0, $j = count($tables) ; $i < $j ; $i++ ){
+			self::db($master);
+			$query = 'checksum table '.$tables[$i];
+			$rs = mysql_query( $query, self::dbOpen() );
+			$row = mysql_fetch_array($rs);
+			$hash = $row[1];
+			for( $k = 0, $l = count($slaves) ; $k < $l ; $k++ ){
+				self::db($slaves[$k]);
+				$rs = mysql_query( $query, self::dbOpen() );
+				$row = mysql_fetch_array($rs);
+				if( $hash != $row[1] ) return FALSE;
+			}
+		}
+		return TRUE;
+	}
 	//sql
 	static private $sqlJSON = array();
 	static private $sql = array( '@INFO'=>array( 'SHOW FULL COLUMNS FROM @table@', 0, 'object' ) );
