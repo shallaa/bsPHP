@@ -29,7 +29,6 @@ class Controller{
 			}
 		}
 		
-		
 		//cookie
 		if( !$m || strpos( $m, 'ck' ) !== FALSE ){
 			$this->subTitle('Cookie');
@@ -117,13 +116,21 @@ class Controller{
 	}
 	//db
 	public function db( $mode = 'list' ){
-		bs::db('local');//, FALSE
-		bs::sql('member');//, FALSE 
+		bs::db('local');
+		bs::sql('member');
 		switch( $mode ){
-		case'list':bs::view('db', FALSE); break;//
+		case'list':bs::view('db', FALSE); break;
 		case'add':bs::out( bs::query('add') ? bs::jsonEncode(bs::query( 'view', array( 'rowid'=>bs::$queryInsertID ) )) : '{"err":"'.bs::$queryError.'"}' ); break;
 		case'del':case'edit':bs::out( bs::query($mode) ? '1' : bs::$queryError ); break;
 		}
+	}
+	//upload
+	public function upload(){
+		if( isset($_FILES) && count($_FILES) ){
+			$file = bs::upload( 'upfile', '/upload' );
+			bs::data( 'file', $file ? '<a href="/bs/bsPHP/upload/'.$file.'" target="_blank">'.$file.'</a>' : '<div>'.bs::$uploadError.'</div>' );
+		}
+		bs::view( 'upload', FALSE );
 	}
 }
 ?>

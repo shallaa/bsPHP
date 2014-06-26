@@ -103,6 +103,19 @@ class bs{
 		self::dbClose();
 		exit($v);
 	}
+	//data
+	static private $data = array();
+	static function data(){
+		for( $arg = func_get_args(), $i = 0, $j = count($arg) ; $i < $j ; ){
+			$k = $arg[$i++];
+			if( $i < $j ){
+				$v = $arg[$i++];
+				if( $v === NULL ) unset(self::$data[$k]);
+				else self::$data[$k] = $v;
+			}else return isset(self::$data[$k]) ? self::$data[$k] : FALSE;
+		}
+		return $v;
+	}
 	//file
 	static function file(){//10
 		$arg = func_get_args();
@@ -759,80 +772,58 @@ class bs{
 		}
 		return $v;
 	}
-	
-	/*
 	//upload
-	static private $upath = '';
-	static private $path = '';
-	static function upPath( $path ){
-		if( $path == NULL ) $path = 'up/';
-		self::$path = '/'. $path;
-		self::$upath = self::root() . $path;
-	}
-	static function up(){
-		$arguments = func_get_args();
-		$i = func_num_args() ;
-		$fld = $i < 1 ? 'upfile' : $arguments[0];
-		$path = $i < 2 ? NULL : $arguments[1];
-		$type = $i < 3 ? 'img' : $arguments[2];
-		$max = $i < 4 ? NULL : $arguments[3];
-		$fname = self::uCheck( $fld, $path, $type, $max );
-		if( $fname && self::uMove( $fld, $fname ) ) return self::$path . $fname;
-		else return false;
-	}
-	static private function uCheck(){
-		$arguments = func_get_args();
-		$files = $_FILES[$arguments[0]];
-		self::uPath( $arguments[1] );
-		//파일체크
-		if( !is_uploaded_file( $files['tmp_name'] ) )return false;
-		//이름변환
-		$t0 = explode( '.', $files['name'] );
-		$name = date( 'Ymd_his_' ) . self::ip();
-		$ext = strtolower( $t0[1] );
-		$path = $name .'.'. $ext;		
-		//확장자필터링
-		$t0 = $arguments[2];
-		if( $t0 == 'all' ) $t1 = array( 'doc', 'docx', 'ppt', 'pptx', 'pdf', 'hwp', 'zip', 'jpg', 'gif', 'png' );
-		else if( $t0 == 'img' ) $t1 = array( 'jpg', 'gif', 'png' );
-		else $t1 = explode( ',', $t0 );
-		$t2 = false;
-		for( $i = 0, $j = count( $t1 ) ; $i < $j ; $i++ ){
-			if( $ext == $t1[$i] ){
-				$t2 = true;
-				break;
-			}
+	static $uploadError = NULL;
+	static private $uploadExt = array(
+		'all'=>array( 'doc'=>1, 'docx'=>1, 'ppt'=>1, 'pptx'=>1, 'pdf'=>1, 'hwp'=>1, 'zip'=>1, 'jpg'=>1, 'gif'=>1, 'png'=>1, 'txt'=>1 ),
+		'image'=>array( 'jpg'=>1, 'gif'=>1, 'png'=>1 )
+	);
+	static function upload( $field, $savePath, $type = 'image', $max = 3 ){
+		$info = $_FILES[$field];
+		if( $info['error'] ){
+			self::$uploadError = 'Err:'.$info['error'];
+			return FALSE;
+		}else if( !is_uploaded_file($info['tmp_name']) ){
+			self::$uploadError = 'Not uploaded:'.$field;
+			return FALSE;
 		}
-		if( $t2 == false ) return false;
-		//사이즈필터링
-		$t0 = $arguments[3];
-		if( $t0 && $t0 < $files['size'] ) return false;
-		//업로드폴더확인
-		$t0 = self::root();
-		$t1 = explode( '/', str_replace( $t0, '', self::$upath ) );
-		for( $i = 0, $j = count( $t1 ) ; $i < $j ; ++$i ){
-			if( $t1[$i] != '' ){
-				$t0 .= $t1[$i] .'/';
-				if( !is_dir( $t0 ) ) mkdir( $t0 );
-			}
+		$i = strrpos( $info['name'], '.' );
+		if( $i === FALSE ){
+			self::$uploadError = 'No extention:'.$info['name'];
+			return FALSE;
 		}
-		//중복이름확인
-		if( file_exists( self::$upath . $path ) ){
-			for( $i = 1 ; ; $i++ ){
-				$t0 = $name .'_'. $i .'.'. $ext;
-				if( !file_exists( self::$upath . $t0 ) ){
-					$r = $t0;
-					break;
-				}
-			}
-		}else $r = $path;
-		return $r;
+		$ext = strtolower(substr( $info['name'], $i + 1 ));
+		$i = FALSE;
+		if( isset(self::$uploadExt[$type]) ){
+			if( !isset(self::$uploadExt[$type][$ext]) ) $i = TRUE;
+		}else{
+			if( !is_array($type) ) $type = explode( ',', $type );
+			if( !in_array( $ext, $type ) ) $i = TRUE;
+		}
+		if( $i ){
+			self::$uploadError = 'Invalid file format:'.$type.'-'.$ext;
+			return FALSE;
+		}
+		$max *= 1000000;
+		if( $max < $info['size'] ){
+			self::$uploadError = 'Exceeded size:'.$info['size'].'/'.$max;
+			return FALSE;
+		}
+		$path = ROOT.( $savePath[0] == '/' ? substr( $savePath, 1 ) : $savePath );
+		if( $path[strlen($path) - 1] == '/' ) $path = substr( $path, 0, -1 );
+		if( !is_dir($path) ){
+			self::$uploadError = 'Not exist dir:'.$path;
+			return FALSE;
+		}
+		$file = md5(date('Ymd_his_').sha1_file($info['tmp_name']).self::rand(10000,99999)).'.'.$ext;
+		if( !move_uploaded_file( $info['tmp_name'], $path.'/'.$file ) ){
+			self::$uploadError = 'move fail:'.$path.'/'.$file;
+			return FALSE;
+		}
+		return $file;
 	}
-	static private function uMove( $val, $name ){
-		if( !move_uploaded_file( $_FILES[$val]['tmp_name'], self::$upath.$name ) ) return false;
-		else return true;
-	}
-	/*function bsUpresize( $f = 'upfile', $path = NULL, $w = 50, $h = 50, $ftype = 'img', $maxsize = 0 ){
+	/*
+	function bsUpresize( $f = 'upfile', $path = NULL, $w = 50, $h = 50, $ftype = 'img', $maxsize = 0 ){
 		global $_bsUp;
 		$fileName = _bsUpfileCheck( $f, $path, $ftype, $maxsize );
 		if( $fileName ){		
