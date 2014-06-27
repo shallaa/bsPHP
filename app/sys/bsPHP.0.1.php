@@ -612,7 +612,25 @@ class bs{
 	static $queryError = NULL;
 	static $queryCount = 0;
 	static $queryInsertID = 0;
+	static function queryBegin(){
+		mysql_query( 'set autocommit=0', self::dbOpen() );
+		mysql_query( 'begin', self::dbOpen() );
+	}
+	static function queryCommit(){mysql_query( 'commit', self::dbOpen() );}
+	static function queryRollback(){mysql_query( 'rollback', self::dbOpen() );}
 	static function query( $key, $data = NULL ){//5000
+		$j = func_num_args();
+		if( $j > 2 ){
+			self::queryBegin();
+			for( $arg = func_get_args(), $i = 0 ; $i < $j ; $i += 2 ){
+				if( !self::query( $arg[$i], $arg[$i + 1] ) ){
+					self::queryRollback();
+					return FALSE;
+				}
+			}
+			self::queryCommit();
+			return TRUE;
+		}
 		if( !isset(self::$sql[$key]) && !self::sqlAdd($key) ) return self::err( 5000, $key );
 		$query = self::$sql[$key][0];
 		$isDML = self::$sql[$key][1];

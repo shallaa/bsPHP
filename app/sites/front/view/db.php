@@ -24,7 +24,7 @@ foreach( $list[0] as $key=>$val ) bs::out( '<td>'.$key.'</td>' );
 </tr>
 <?php
 foreach( $list as $v ){
-	foreach( $v as $key=>$val ) bs::out( ( $key == 'no' ? '<tr id="tr'.$val.'"><td>'.$val : '<td><input type="text" id="'.$key.$v->no.'" value="'.$val.'" data-value="'.$val.'">' ).'</td>' );
+	foreach( $v as $key=>$val ) bs::out( ( $key == 'no' ? '<tr id="tr'.$val.'" class="row"><td>'.$val : '<td><input type="text" id="'.$key.$v->no.'" value="'.$val.'" data-value="'.$val.'">' ).'</td>' );
 	bs::out(
 	'<td><button id="e'.$v->no.'">edit</button>',
 	'<td><button id="d'.$v->no.'">remove</button>',
@@ -32,6 +32,7 @@ foreach( $list as $v ){
 	);
 }
 ?>
+<tr><td colspan="4"><button id="u">update all</button></td></tr>
 </table>
 <div id="err"></div>
 <table cellpadding="0" cellspacing="0">
@@ -45,7 +46,6 @@ foreach( $list as $v ){
 bs( function(){
 	var base = location.href;
 	base = base.substr( 0, base.lastIndexOf('/') ) + '/db/';
-	console.log( base);
 	(function mk(c){
 		bs.Style.fn( 'key', c, function( self, style, v ){
 			if( v === undefined ) return self[c];
@@ -61,7 +61,7 @@ bs( function(){
 		bs.Dom( t.S( '>0' ) ).S( '@disabled', null, 'html', 'remove' );
 	}
 	bs.Dom('button').S( 'click', function(e){
-		var i = this.id.substr(1), data;
+		var i = this.id.substr(1), data, j, t0, k;
 		switch(this.id.charAt(0)){
 		case'a':
 			data = JSON.parse(bs.post( null, base + 'add', 'pass', 'testpassword', 'pwc', 'testpassword', 'id', bs.Dom('#aid').S('@value'), 'nick', bs.Dom('#anick').S('@value') ));
@@ -105,6 +105,14 @@ bs( function(){
 				});
 			}
 			break;
+		case'u':
+			for( t0 = [], data = bs.Dom('@.row'), i = 0, j = data.length ; i < j ; i++ ){
+				k = data.S( i, '@id' );
+				if( bs.Dom('#id'+k).S('*value') != bs.Dom('#id'+k).S('@value') || bs.Dom('#nick'+k).S('*value') != bs.Dom('#nick'+k).S('@value') ){
+					t0.push( 'id'+k, bs.Dom('#id'+k).S('@value'), 'nick'+k, bs.Dom('#nick'+k).S('@value') );
+				}
+
+			}
 		}
 	});
 });
