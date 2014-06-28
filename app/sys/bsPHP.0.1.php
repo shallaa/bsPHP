@@ -846,5 +846,5 @@ class bs{
 		return $file;
 	}
 }
-if( defined(ID) ) bs::route();
+bs::route();
 ?>
