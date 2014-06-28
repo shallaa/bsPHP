@@ -1,4 +1,9 @@
 <?php
+/* bsPHP v0.1
+ * Copyright (c) 2013 by ProjectBS Committe and contributors. 
+ * http://www.bsplugin.com All rights reserved.
+ * Licensed under the BSD license. See http://opensource.org/licenses/BSD-3-Clause
+ */
 define( 'ROOT', realpath('').'/' );
 define( 'APP', ROOT.'app/' );
 define( 'SYS', APP.'sys/' );
