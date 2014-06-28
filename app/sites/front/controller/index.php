@@ -122,6 +122,24 @@ class Controller{
 		case'list':bs::view('db', FALSE); break;
 		case'add':bs::out( bs::query('add') ? bs::jsonEncode(bs::query( 'view', array( 'rowid'=>bs::$queryInsertID ) )) : '{"err":"'.bs::$queryError.'"}' ); break;
 		case'del':case'edit':bs::out( bs::query($mode) ? '1' : bs::$queryError ); break;
+		case'update':
+			bs::queryBegin();
+			$data = array();
+			foreach( $_POST as $k=>$v ){
+				$i = substr( $k, $k[0] == 'i' ? 2 : 4 );
+				if( !isset($data[$i]) ) $data[$i] = array('no'=>$i);
+				$data[$i][$k[0] == 'i' ? 'id' : 'nick'] = $v;
+			}
+			foreach( $data as $k=>$v ){
+				if( !bs::query( 'edit', $v ) ){
+					bs::queryRollback();
+					bs::out(bs::$queryError.' at no.'.$k);
+					return;
+				}
+			}
+			bs::queryCommit();
+			bs::out('1');
+			break;
 		}
 	}
 	//upload

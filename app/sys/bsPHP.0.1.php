@@ -840,67 +840,6 @@ class bs{
 		}
 		return $file;
 	}
-	/*
-	function bsUpresize( $f = 'upfile', $path = NULL, $w = 50, $h = 50, $ftype = 'img', $maxsize = 0 ){
-		global $_bsUp;
-		$fileName = _bsUpfileCheck( $f, $path, $ftype, $maxsize );
-		if( $fileName ){		
-			$ext = substr( $fileName, -3 );
-			switch( $ext ){
-			case'gif': $img = imagecreatefromgif( $_FILES[$f]['tmp_name'] ); break;
-			case'jpg': $img = imagecreatefromjpeg( $_FILES[$f]['tmp_name'] ); break;
-			case'png': $img = imagecreatefrompng( $_FILES[$f]['tmp_name'] ); break;
-			}		
-			$imgx = imagesx( $img ); $imgy = imagesy( $img );
-			if( $w < $imgx || $h < $imgy ){
-				if( $w / $h <= $imgx / $imgy ){//가로기준 축소
-					$width = $w;
-					$height = (int)( $imgy * $w / $imgx);
-					$px = 0;
-					$py = (int)( ( $h - $height ) / 2 );
-				}else{
-					$width = (int)( $imgx * $h / $imgy );
-					$height = $h;
-					$px = (int)( ( $w - $width ) / 2 );
-					$py = 0;
-				}
-				$source = imagecreatetruecolor( $w, $h );
-				$copy = imagecreatetruecolor( $width, $height );
-				if( $ext == 'png' ){
-					$image = imagecreatefromgif( $_bsUp['noneImg'] );
-					imagealphablending( $source, false );
-					imagesavealpha( $source, true );
-					imagecopyresampled( $source, $image, 0, 0, 0, 0, $w, $h, 1, 1 );
-					
-					imagealphablending( $copy, false );
-					imagesavealpha( $copy, true );
-					imagecopyresampled( $copy, $img, 0, 0, 0, 0, $width, $height, $imgx, $imgy );
-				}else{
-					$back = imagecolorallocate( $source, 255, 255, 255 );
-					imagefilledrectangle( $source, 0, 0, $w, $h, $back );//--이거 안하면 배경이 검정색이 됨...
-					imagecopyresized( $copy, $img, 0, 0, 0, 0, $width, $height, $imgx, $imgy );
-				}
-				imagecopy( $source, $copy, $px, $py, 0, 0, $width, $height );
-				switch( $ext ){
-				case'gif': imagegif( $source, $_bsUp['upPath'].$fileName ); break;
-				case'jpg': imagejpeg( $source, $_bsUp['upPath'].$fileName ); break;
-				case'png': imagepng( $source, $_bsUp['upPath'].$fileName ); break;
-				}
-				imagedestroy( $source );
-				imagedestroy( $copy );
-			}else{
-				if( _bsUpfileMove( $f, $fileName ) ){		
-					return $fileName;
-				}else{
-					return NULL;
-				}
-			}
-			return $fileName;
-		}else{
-			return NULL;
-		}
-	}
-	*/
 }
-bs::route();
+if( defined(ID) ) bs::route();
 ?>

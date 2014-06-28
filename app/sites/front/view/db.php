@@ -17,7 +17,7 @@ button{width:100px;text-align:center}
 <table id="list" cellpadding="0" cellspacing="0">
 <tr style="background:#ededed">
 <?php
-$list = bs::query( 'list', NULL, FALSE );
+$list = bs::query( 'list', NULL );
 foreach( $list[0] as $key=>$val ) bs::out( '<td>'.$key.'</td>' );
 ?>
 <td>edit</td><td>del</td>
@@ -32,7 +32,7 @@ foreach( $list as $v ){
 	);
 }
 ?>
-<tr><td colspan="4"><button id="u">update all</button></td></tr>
+<tr><td colspan="5"><button id="u">update all</button></td></tr>
 </table>
 <div id="err"></div>
 <table cellpadding="0" cellspacing="0">
@@ -106,12 +106,28 @@ bs( function(){
 			}
 			break;
 		case'u':
-			for( t0 = [], data = bs.Dom('@.row'), i = 0, j = data.length ; i < j ; i++ ){
-				k = data.S( i, '@id' );
+			for( t0 = [null, base + 'update'], data = bs.Dom('@.row'), i = 0, j = data.length ; i < j ; i++ ){
+				k = data.S( i, '@id' ).substr(2);
 				if( bs.Dom('#id'+k).S('*value') != bs.Dom('#id'+k).S('@value') || bs.Dom('#nick'+k).S('*value') != bs.Dom('#nick'+k).S('@value') ){
 					t0.push( 'id'+k, bs.Dom('#id'+k).S('@value'), 'nick'+k, bs.Dom('#nick'+k).S('@value') );
 				}
-
+			}
+			if( t0.length > 2 ){
+				data = bs.post.apply( null, t0 );
+				if( data == '1' ){
+					for( i = 2, j = t0.length ; i < j ; i += 4 ){
+						k = t0[i].substr(2);
+						bs.Dom('#id'+k).S('*value', bs.Dom('#id'+k).S('@value') ), bs.Dom('#nick'+k).S( '*value', bs.Dom('#nick'+k).S('@value') );
+						bs.ANI.style( bs.Dom( '#tr'+k ).S( 'R', 200, 'B', 200, 'G', 255, 'this' ), 'R', 255, 'B', 255, 'delay', .5, 'time', 1.5 );
+					}
+				}else{
+					bs.Dom('#err').S( 'html', data );
+					for( i = 2, j = t0.length ; i < j ; i += 4 ){
+						k = t0[i].substr(2);
+						bs.Dom('#id'+k).S('@value', bs.Dom('#id'+k).S('*value') ), bs.Dom('#nick'+k).S( '@value', bs.Dom('#nick'+k).S('*value') );
+						bs.ANI.style( bs.Dom('#tr'+k).S( 'R', 255, 'G', 200, 'B', 200, 'this' ), 'G', 255, 'B', 255, 'delay', .5, 'time', 1.5 );
+					}
+				}
 			}
 		}
 	});
