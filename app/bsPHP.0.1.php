@@ -6,7 +6,6 @@
  */
 define( 'ROOT', realpath('').'/' );
 define( 'APP', ROOT.'app/' );
-define( 'SYS', APP.'sys/' );
 //info
 define( 'EXT', '.php' );
 define( 'CONTROLLER_CLASS', 'Controller' );
@@ -128,7 +127,7 @@ class bs{
 		$base = $arg[0];
 		if( strpos( $base, ROOT ) === 0 ) $base = substr( $base, strlen(ROOT) );
 		if( func_num_args() == 1 ){
-			$path = ROOT.$base;
+			$path = str_replace( '//', '/', ROOT.$base );
 			if( file_exists($path) ){
 				$f = fopen( $path, "r" );
 				if( !$f ) self::err( 10, $arg[0] );
@@ -139,17 +138,17 @@ class bs{
 		}else{
 			for( $dir = explode( '/', $base ), $file = array_pop($dir), $path = ROOT, $i = 0, $j = count($dir) ; $i < $j ; ){
 				$path .= '/'.$dir[$i++];
+				$path = str_replace( '//', '/', $path );
 				if( !is_dir($path) ) mkdir($path);
 			}
-			$path .= '/'.$file;
+			$path = str_replace( '//', '/', $path.'/'.$file );
 			if( $arg[1] === NULL ){
 				if( file_exists($path) ) unlink($path );
 			}else{
 				$f = @fopen( $path, "w+" );
-				if( !$f ) self::err( 11, $path );
+				if( !$f ) return self::err( 11, $path );
 				@flock( $f, LOCK_EX );
-					//fwrite( $f, pack("CCC",0xef,0xbb,0xbf) );
-					fwrite( $f, $arg[1] );
+				fwrite( $f, $arg[1] );
 				@flock( $f, LOCK_UN );
 				@fclose($f);
 			}
@@ -270,7 +269,7 @@ class bs{
 	static function hash($v){return hash('sha512', 'bs_'.$v.'_sha512' );}
 	static private $encryptSALT = NULL;
 	static private function encryptSalt(){
-		if( self::$encryptSALT === NULL ) self::$encryptSALT = self::file(SYS.'bsPHP.salt');
+		if( self::$encryptSALT === NULL ) self::$encryptSALT = self::file(APP.'bsPHP.salt');
 		return self::$encryptSALT;
 	}
 	static function encrypt( $v ){
@@ -584,8 +583,8 @@ class bs{
 				}
 				self::file( $path, json_encode( $info, 256 ) );
 				if( APPLICATION ) self::application( $appKey, $info );
-			}
-			self::$sqlTable[$table] = $info = json_decode( $info, true );
+			}else $info = json_decode( $info, true );
+			self::$sqlTable[$table] = $info;
 		}
 		return self::$sqlTable[$table];
 	}
@@ -636,6 +635,7 @@ class bs{
 			self::queryCommit();
 			return TRUE;
 		}
+		
 		if( !isset(self::$sql[$key]) && !self::sqlAdd($key) ) return self::err( 5000, $key );
 		$query = self::$sql[$key][0];
 		$isDML = self::$sql[$key][1];
