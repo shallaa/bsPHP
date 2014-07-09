@@ -1,0 +1,5 @@
+{
+	"test_rowid":["integer",false,true,false,0],
+	"userid":["max_length[32]|trim|min_length[6]|xss_clean",true,false,false,null],
+	"nick":["max_length[16]|trim|min_length[6]|xss_lean",true,false,false,null]
+}

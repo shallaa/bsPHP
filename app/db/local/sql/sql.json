@@ -1,0 +1,5 @@
+{
+	"list":"select test_rowid no, userid id, nick ni from test order by test_rowid",
+	"view":"@recordObject@select test_rowid no,userid id,nick ni from test where test_rowid=@no:test.test_rowid@",
+	"add":"insert into test(userid,nick)values(@id:test.userid@,@ni:test.nick@)"
+}

@@ -488,7 +488,7 @@ class bs{
 				if( APPLICATION !== FALSE ) self::application( $key, $data );
 			}
 		}else{
-			if( APPLICATION ) self::application( $key, NULL );
+			if( APPLICATION ) @self::application( $key, NULL );
 			$data = self::file($file);
 		}
 		return $data;
@@ -499,7 +499,7 @@ class bs{
 	static private function dbOpen(){
 		$d = &self::$db[self::$dbCurr];
 		if( !isset($d['conn']) || !$d['conn'] ){
-			$d['conn'] = mysql_connect( $d['url'], $d['id'], $d['pw'] );
+			$d['conn'] = @mysql_connect( $d['url'], $d['id'], $d['pw'] );
 			$encoding = $d['encoding'];
 			mysql_select_db( $d['db'], $d['conn'] );
 			mysql_query('set session character_set_connection='.$encoding.';');
@@ -623,19 +623,6 @@ class bs{
 	static function queryCommit(){mysql_query( 'commit', self::dbOpen() );}
 	static function queryRollback(){mysql_query( 'rollback', self::dbOpen() );}
 	static function query( $key, $data = NULL ){//5000
-		$j = func_num_args();
-		if( $j > 2 ){
-			self::queryBegin();
-			for( $arg = func_get_args(), $i = 0 ; $i < $j ; $i += 2 ){
-				if( !self::query( $arg[$i], $arg[$i + 1] ) ){
-					self::queryRollback();
-					return FALSE;
-				}
-			}
-			self::queryCommit();
-			return TRUE;
-		}
-		
 		if( !isset(self::$sql[$key]) && !self::sqlAdd($key) ) return self::err( 5000, $key );
 		$query = self::$sql[$key][0];
 		$isDML = self::$sql[$key][1];
@@ -764,7 +751,7 @@ class bs{
 			case'exact_length':case'max_length':case'min_length':
 				$arg = (int)$arg[0];
 				$t0 = function_exists('mb_strlen') ? mb_strlen($v) : strlen($v);
-				if( $f == 'exact_length' ? $t0 != $arg : $f == 'max_length' ? $t0 >= $arg : $t0 <= $arg ) return $fail;
+				if( $f == 'exact_length' ? $t0 != $arg : $f == 'max_length' ? $t0 >= $arg : $t0 < $arg ) return $fail;
 				break;
 			case'valid_emails':
 				foreach( explode(',', $v ) as $t0 ) if( !preg_match(self::$valiRex['valid_email'], $v ) ) return $fail;
