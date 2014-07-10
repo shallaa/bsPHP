@@ -340,6 +340,7 @@ class bs{
 		);
 		return $_SERVER[isset(self::$serverKey[$k]) ? self::$serverKey[$k] : $k];
 	}
+	static function uri(){return $_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI'];}
 	static function mail( $from, $to, $subject, $contents, $cc = NULL, $bcc = NULL ){
 		$charset = 'utf-8';
 		$encoded_subject = "=?".$charset."?B?".base64_encode($subject) ."?=";

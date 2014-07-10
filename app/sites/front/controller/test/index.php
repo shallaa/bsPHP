@@ -6,9 +6,6 @@ class Controller{
 	private function assert( $v0, $v1 ){return '<div style="color:#'.( $v0 === $v1 ? '090">OK' : '900">NO' ).'</div>';}
 	
 	public function __construct(){
-		if( strpos( $_SERVER["SERVER_NAME"], 'cookilab' ) !== FALSE ) $this->url = 'http://bsphp.cookilab.com/index.php';
-		else if( strpos( $_SERVER["SERVER_NAME"], 'bsidesoft' ) !== FALSE ) $this->url = 'http://www.bsidesoft.com/bs/bsPHP/index.php';
-		else $this->url = 'http://www.bsplugin.com/bsPHP/index.php';
 	}
 	public function v8(){
 		if( count($_POST) == 0 ) bs::view( 'v8', FALSE );
@@ -83,11 +80,11 @@ class Controller{
 		//curl
 		if( !$m || strpos( $m, 'curl' ) !== FALSE ){
 			$this->subTitle('GET');
-			$v0 = bs::get( $this->url.'/get' );
+			$v0 = bs::get( bs::uri().'/get' );
 			bs::out( '/get : '.$v0, $this->assert( $v0, 'GET테스트' ) );
 
 			$this->subTitle('POST,IN');
-			$v0 = bs::post( $this->url.'/post', 'test', 'POST테스트', 'num', 30 );
+			$v0 = bs::post( bs::uri().'/post', 'test', 'POST테스트', 'num', 30 );
 			bs::out( '/post : '.$v0, $this->assert( $v0, 'POST테스트integer30' ) );
 		}
 		
