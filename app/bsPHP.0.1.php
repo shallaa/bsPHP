@@ -450,11 +450,11 @@ class bs{
 		if( !APPLICATION ) return FALSE;
 		if( !self::$applicationConn ){
 			$info = self::json(self::file(DB.APPLICATION.'/db.json'));
-			$conn = mysql_connect( $info['url'], $info['id'], $info['pw'] );
+			$conn = @mysql_connect( $info['url'], $info['id'], $info['pw'] );
 			if( !$conn ) return FALSE;
 			self::$applicationConn = $conn;
-			mysql_select_db( $info['db'], $conn );
-			mysql_query( APPLICATION_NEW, $conn );
+			@mysql_select_db( $info['db'], $conn );
+			@mysql_query( APPLICATION_NEW, $conn );
 		}
 		 return self::$applicationConn;
 	}
@@ -462,17 +462,17 @@ class bs{
 		$conn = self::applicationConn();
 		if( !$conn ) return self::err( 1000, '' );
 		$j = func_num_args();
-		$key = mysql_real_escape_string($key);
+		$key = @mysql_real_escape_string($key);
 		if( $j == 1 ){
-			$rs = mysql_query( str_replace( '@k@', $key, APPLICATION_GET ), $conn );
-			if( mysql_num_rows($rs) == 0 ) return FALSE;
-			$row = mysql_fetch_row($rs);
+			$rs = @mysql_query( str_replace( '@k@', $key, APPLICATION_GET ), $conn );
+			if( @mysql_num_rows($rs) == 0 ) return FALSE;
+			$row = @mysql_fetch_row($rs);
 			return $row[0];
 		}else{
 			$arg = func_get_args();
-			$v = mysql_real_escape_string($arg[1]);
+			$v = @mysql_real_escape_string($arg[1]);
 			if( APPLICATION_MAX < strlen($v) ) return FALSE;
-			return mysql_query( 
+			return @mysql_query( 
 				$arg[1] === NULL ? str_replace( '@k@', $key, APPLICATION_DEL ) : str_replace( '@v@', $v, str_replace( '@k@', $key, APPLICATION_SET ) ), 
 				$conn 
 			);
@@ -501,17 +501,17 @@ class bs{
 		if( !isset($d['conn']) || !$d['conn'] ){
 			$d['conn'] = @mysql_connect( $d['url'], $d['id'], $d['pw'] );
 			$encoding = $d['encoding'];
-			mysql_select_db( $d['db'], $d['conn'] );
-			mysql_query('set session character_set_connection='.$encoding.';');
-			mysql_query('set session character_set_results='.$encoding.';');
-			mysql_query('set session character_set_client='.$encoding.';');
+			@mysql_select_db( $d['db'], $d['conn'] );
+			@mysql_query('set session character_set_connection='.$encoding.';');
+			@mysql_query('set session character_set_results='.$encoding.';');
+			@mysql_query('set session character_set_client='.$encoding.';');
 		}
 		return $d['conn'];
 	}
 	static private function dbClose(){
 		foreach( self::$db as $k=>$v ){
 			if( isset($v['conn']) &&  $v['conn'] !== FALSE ){
-				mysql_close($v['conn']);
+				@mysql_close($v['conn']);
 				$v['conn'] = FALSE;
 			}
 		}
@@ -525,19 +525,19 @@ class bs{
 		if( !$tables ){
 			$tables = array();
 			self::db($master);
-			$rs = mysql_query( 'show tables', self::dbOpen() );
-			while( $row = mysql_fetch_array($rs) ) array_push( $tables, $row[0] );
+			$rs = @mysql_query( 'show tables', self::dbOpen() );
+			while( $row = @mysql_fetch_array($rs) ) array_push( $tables, $row[0] );
 		}else if( !is_array($tables) ) $tables = array($tables);
 		for( $i = 0, $j = count($tables) ; $i < $j ; $i++ ){
 			self::db($master);
 			$query = 'checksum table '.$tables[$i];
-			$rs = mysql_query( $query, self::dbOpen() );
-			$row = mysql_fetch_array($rs);
+			$rs = @mysql_query( $query, self::dbOpen() );
+			$row = @mysql_fetch_array($rs);
 			$hash = $row[1];
 			for( $k = 0, $l = count($slaves) ; $k < $l ; $k++ ){
 				self::db($slaves[$k]);
-				$rs = mysql_query( $query, self::dbOpen() );
-				$row = mysql_fetch_array($rs);
+				$rs = @mysql_query( $query, self::dbOpen() );
+				$row = @mysql_fetch_array($rs);
 				if( $hash != $row[1] ) return FALSE;
 			}
 		}
@@ -617,11 +617,11 @@ class bs{
 	static $queryCount = 0;
 	static $queryInsertID = 0;
 	static function queryBegin(){
-		mysql_query( 'set autocommit=0', self::dbOpen() );
-		mysql_query( 'begin', self::dbOpen() );
+		@mysql_query( 'set autocommit=0', self::dbOpen() );
+		@mysql_query( 'begin', self::dbOpen() );
 	}
-	static function queryCommit(){mysql_query( 'commit', self::dbOpen() );}
-	static function queryRollback(){mysql_query( 'rollback', self::dbOpen() );}
+	static function queryCommit(){@mysql_query( 'commit', self::dbOpen() );}
+	static function queryRollback(){@mysql_query( 'rollback', self::dbOpen() );}
 	static function query( $key, $data = NULL ){//5000
 		if( !isset(self::$sql[$key]) && !self::sqlAdd($key) ) return self::err( 5000, $key );
 		$query = self::$sql[$key][0];
@@ -638,7 +638,7 @@ class bs{
 					self::$queryError = 'NoData:'.$k;
 					return FALSE;
 				}
-				$v = mysql_real_escape_string($data[$k]);
+				$v = @mysql_real_escape_string($data[$k]);
 				if( $info[0] ){
 					$v = self::vali( $v, $info[0], $data );
 					if( $v === self::$valiFail ){
@@ -650,16 +650,16 @@ class bs{
 				$query = str_replace( '@'.$k.'@', $v, $query );
 			}
 		}
-		$rs = mysql_query( $query, self::dbOpen() );
+		$rs = @mysql_query( $query, self::dbOpen() );
 		if( $rs === TRUE ){
-			self::$queryCount = mysql_affected_rows();
-			self::$queryInsertID = strpos( strtolower(substr( $query, 0, 6 )), 'insert' ) !== FALSE ? mysql_insert_id() : 0;
+			self::$queryCount = @mysql_affected_rows();
+			self::$queryInsertID = strpos( strtolower(substr( $query, 0, 6 )), 'insert' ) !== FALSE ? @mysql_insert_id() : 0;
 			return TRUE;
 		}else if( $rs === FALSE ){
-			self::$queryError = 'ERR:'.mysql_error();
+			self::$queryError = 'ERR:'.@mysql_error();
 			return FALSE;
 		}else{
-			self::$queryCount = $count = mysql_num_rows($rs);
+			self::$queryCount = $count = @mysql_num_rows($rs);
 			if( $count === 0 ){
 				self::$queryError = 'NoRecord';
 				return FALSE;
@@ -668,23 +668,23 @@ class bs{
 			switch( $type ){
 			case'object':
 				$r = array();
-				while( $row = mysql_fetch_object($rs) ) array_push( $r, $row );
+				while( $row = @mysql_fetch_object($rs) ) array_push( $r, $row );
 				return $r;
 			case'array':
 				$r = array();
-				while( $row = mysql_fetch_row($rs) ) array_push( $r, $row );
+				while( $row = @mysql_fetch_row($rs) ) array_push( $r, $row );
 				return $r;
 			case'raw':return $rs;
-			case'recordObject':return mysql_fetch_object($rs);
-			case'record':case'recordArray':return mysql_fetch_row($rs);
+			case'recordObject':return @mysql_fetch_object($rs);
+			case'record':case'recordArray':return @mysql_fetch_row($rs);
 			default:
 				if( $type[0] == '[' ){
 					$r = substr( $type, 1, -1 );
 					if( self::isnum($r) ){
-						$row = mysql_fetch_row($rs);
+						$row = @mysql_fetch_row($rs);
 						$r = $row[$r];
 					}else{
-						$row = mysql_fetch_object($rs);
+						$row = @mysql_fetch_object($rs);
 						$r = $row->{$r};
 					}
 					return $r;
@@ -744,8 +744,8 @@ class bs{
 			case'is_unique':
 				if( !isset($data[$arg[0]]) ) return $fail;
 				$arg = explode( '.', $arg[0] );
-				$t0 = mysql_query( 'select count(*)from '.$arg[0].' where '.$arg[1].'='.( self::isnum($v) ? $v : "'".$v."'" ), self::dbOpen() );
-				$t0 = mysql_fetch_row($t0);
+				$t0 = @mysql_query( 'select count(*)from '.$arg[0].' where '.$arg[1].'='.( self::isnum($v) ? $v : "'".$v."'" ), self::dbOpen() );
+				$t0 = @mysql_fetch_row($t0);
 				if( !$t0[0] ) return $fail;
 				break;
 			case'exact_length':case'max_length':case'min_length':

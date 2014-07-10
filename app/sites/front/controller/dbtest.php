@@ -3,7 +3,7 @@ class Controller{
 	
 	function __construct(){
 		bs::db( 'local', FALSE );
-		bs::sql('sql', FALSE);
+		bs::sql('sql', FALSE );
 	}
 	function index(){
 		bs::data( 'list', bs::query( 'list', NULL, FALSE ) );
