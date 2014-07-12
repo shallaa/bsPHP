@@ -635,7 +635,14 @@ class bs{
 			}
 			$validation = array();
 			foreach( self::$sqlInfo[$key] as $k=>$info ){
-				if( !isset($data[$k]) ){
+				$autoIncrement = $info[2];
+				$allowNull = $info[3];
+				$defaultValue = $info[4];
+				
+				if(!isset($data[$k]) && isset($defaultValue)) {
+					$data[$k] = $defaultValue;
+				}				
+				if( !isset($data[$k]) && !$allowNull ){
 					self::$queryError = 'NoData:'.$k;
 					return FALSE;
 				}
@@ -647,7 +654,13 @@ class bs{
 						return FALSE;
 					}
 				}
-				if( $info[1] === TRUE ) $v = "'".str_replace( "'", "''", $v )."'";
+				if( $info[1] === TRUE ) {
+					if(!isset($data[$k])) {
+						$v = 'NULL';
+					} else {
+						$v = "'".str_replace( "'", "''", $v )."'";
+					}
+				}
 				$query = str_replace( '@'.$k.'@', $v, $query );
 			}
 		}
