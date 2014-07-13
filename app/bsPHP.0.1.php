@@ -675,10 +675,10 @@ class bs{
 					}
 				}
 				$query = str_replace( '@'.$k.'@', $v, $query );
-			}
-			foreach($data as $k=>$v) {
-				$query = str_replace( '@'.$k.'@', $v, $query );
-			}
+			}			
+		}
+		foreach($data as $k=>$v) {
+			$query = str_replace( '@'.$k.'@', $v, $query );
 		}
 		$rs = @mysql_query( $query, self::dbOpen() );
 		if( $rs === TRUE ){
