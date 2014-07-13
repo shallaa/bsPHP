@@ -607,7 +607,7 @@ class bs{
 		return self::$sqlTable[$table];
 	}
 	static function sqlParse($str){
-		if( strpos( $str[0], ':' ) === FALSE ) return $str;
+		if( strpos( $str[0], ':' ) === FALSE ) return $str[0];
 		$str = explode( ':', $str[0] );
 		$meta = explode( '.', $str[1] );
 		$vali = self::sqlTable($meta[0]);
@@ -674,6 +674,9 @@ class bs{
 						$v = "'".str_replace( "'", "''", $v )."'";
 					}
 				}
+				$query = str_replace( '@'.$k.'@', $v, $query );
+			}
+			foreach($data as $k=>$v) {
 				$query = str_replace( '@'.$k.'@', $v, $query );
 			}
 		}
