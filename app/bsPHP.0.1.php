@@ -155,6 +155,13 @@ class bs{
 		}
 	}
 	//http
+	static function rtn($code, $value = array()) {
+		$rtn["value"] = $value;
+		$rtn["code"] = $code;
+	
+		self::out(json_encode($rtn));
+		self::end();
+	}
 	static function out(){
 		for( $t0 = '', $i = 0, $j = func_num_args(), $arg = func_get_args() ; $i < $j ; $i++ ) $t0 .= $arg[$i];
 		echo($t0);
