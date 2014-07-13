@@ -27,6 +27,16 @@ define( 'APPLICATION_GET', "select v from ".APPLICATION_TABLE." where k='@k@'" )
 define( 'APPLICATION_SET', "insert into ".APPLICATION_TABLE."(k,v)values('@k@','@v@')on duplicate key update v='@v@'" );
 define( 'APPLICATION_DEL', "delete from ".APPLICATION_TABLE." where k='@k@'" );
 
+// HttpResponse Code
+class HttpResponse {
+    const OK                     = 200;
+    const BAD_REQUEST            = 400;
+    const UNAUTHORIZED           = 401;
+    const FORBIDDEN              = 403;
+    const NOT_FOUND              = 404;        
+    const INTERNAL_SERVER_ERROR  = 500;        
+};
+
 class bs{
 	static private $controller;
 	static function route(){
@@ -621,7 +631,6 @@ class bs{
 		foreach( self::json(self::appFile( '@BS@'.self::$dbCurr.'.sql:'.$key, DB.self::$dbCurr.'/sql/'.$key.'.json', $cache )) as $k=>$v ) self::$sqlJSON[trim($k)] = trim($v);
 	}
 	//query
-	static $queryError = NULL;
 	static $queryCount = 0;
 	static $queryInsertID = 0;
 	static function queryBegin(){
@@ -637,8 +646,7 @@ class bs{
 		if( $data === NULL ) $data = $_POST;
 		if( count(self::$sqlInfo[$key]) > 0 ){
 			if( count($data) == 0 ){
-				self::$queryError = 'NoData:'.$k;
-				return FALSE;
+				self::rtn(HttpResponse::BAD_REQUEST, 'NoData:'.$k);
 			}
 			$validation = array();
 			foreach( self::$sqlInfo[$key] as $k=>$info ){
@@ -650,15 +658,13 @@ class bs{
 					$data[$k] = $defaultValue;
 				}				
 				if( !isset($data[$k]) && !$allowNull ){
-					self::$queryError = 'NoData:'.$k;
-					return FALSE;
+					self::rtn(HttpResponse::BAD_REQUEST, 'NoData:'.$k);
 				}
 				$v = @mysql_real_escape_string($data[$k]);
 				if( $info[0] ){
 					$v = self::vali( $v, $info[0], $data );
 					if( $v === self::$valiFail ){
-						self::$queryError = 'VALI:'.self::$valiError;
-						return FALSE;
+						self::rtn(HttpResponse::BAD_REQUEST, 'VALI:'.self::$valiError);
 					}
 				}
 				if( $info[1] === TRUE ) {
@@ -677,13 +683,11 @@ class bs{
 			self::$queryInsertID = strpos( strtolower(substr( $query, 0, 6 )), 'insert' ) !== FALSE ? @mysql_insert_id() : 0;
 			return TRUE;
 		}else if( $rs === FALSE ){
-			self::$queryError = 'ERR:'.@mysql_error();
-			return FALSE;
+			self::rtn(HttpResponse::BAD_REQUEST, 'ERR:'.@mysql_error());
 		}else{
 			self::$queryCount = $count = @mysql_num_rows($rs);
 			if( $count === 0 ){
-				self::$queryError = 'NoRecord';
-				return FALSE;
+				self::rtn(HttpResponse::BAD_REQUEST, 'NoRecord');
 			}
 			$type = self::$sql[$key][2];
 			switch( $type ){
