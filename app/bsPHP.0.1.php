@@ -765,7 +765,7 @@ class bs{
 			case'exact_length':case'max_length':case'min_length':
 				$arg = (int)$arg[0];
 				$t0 = function_exists('mb_strlen') ? mb_strlen($v) : strlen($v);
-				if( $f == 'exact_length' ? $t0 != $arg : $f == 'max_length' ? $t0 >= $arg : $t0 < $arg ) return $fail;
+				if( $f == 'exact_length' ? $t0 != $arg : $f == 'max_length' ? $t0 > $arg : $t0 < $arg ) return $fail;
 				break;
 			case'valid_emails':
 				foreach( explode(',', $v ) as $t0 ) if( !preg_match(self::$valiRex['valid_email'], $v ) ) return $fail;
