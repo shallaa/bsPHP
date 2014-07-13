@@ -687,7 +687,7 @@ class bs{
 		}else{
 			self::$queryCount = $count = @mysql_num_rows($rs);
 			if( $count === 0 ){
-				self::rtn(HttpResponse::BAD_REQUEST, 'NoRecord');
+				self::rtn(HttpResponse::OK, array());
 			}
 			$type = self::$sql[$key][2];
 			switch( $type ){
