@@ -683,7 +683,7 @@ class bs{
 			self::$queryInsertID = strpos( strtolower(substr( $query, 0, 6 )), 'insert' ) !== FALSE ? @mysql_insert_id() : 0;
 			return TRUE;
 		}else if( $rs === FALSE ){
-			self::rtn(HttpResponse::BAD_REQUEST, 'ERR:'.@mysql_error());
+			self::rtn(HttpResponse::BAD_REQUEST, 'query:'.$query.' ERR:'.@mysql_error());
 		}else{
 			self::$queryCount = $count = @mysql_num_rows($rs);
 			if( $count === 0 ){
