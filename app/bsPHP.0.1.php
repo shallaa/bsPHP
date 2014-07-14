@@ -691,7 +691,7 @@ class bs{
 		}else{
 			self::$queryCount = $count = @mysql_num_rows($rs);
 			if( $count === 0 ){
-				self::rtn(HttpResponse::OK, array());
+				return array();
 			}
 			$type = self::$sql[$key][2];
 			switch( $type ){
