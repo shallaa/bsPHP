@@ -1,6 +1,6 @@
 <?php
 /* bsPHP v0.1
- * Copyright (c) 2013 by ProjectBS Committe and contributors. 
+ * Copyright (c) 2013 by ProjectBS Committe and contributors.
  * http://www.bsplugin.com All rights reserved.
  * Licensed under the BSD license. See http://opensource.org/licenses/BSD-3-Clause
  */
@@ -13,6 +13,7 @@ define( 'DEFAULT_CONTROLLER', 'index'.EXT );
 define( 'DEFAULT_METHOD', 'index' );
 //path
 define( 'DB', APP.'db/' );
+define( 'DB_FILE', '/db.json' );
 define( 'SITE', APP.'sites/'.ID.'/' );
 define( 'CONFIG', SITE.'config'.EXT );
 define( 'CONTROLLER', SITE.'controller/' );
@@ -33,8 +34,8 @@ class HttpResponse {
     const BAD_REQUEST            = 400;
     const UNAUTHORIZED           = 401;
     const FORBIDDEN              = 403;
-    const NOT_FOUND              = 404;        
-    const INTERNAL_SERVER_ERROR  = 500;        
+    const NOT_FOUND              = 404;
+    const INTERNAL_SERVER_ERROR  = 500;
 };
 
 class bs{
@@ -168,7 +169,7 @@ class bs{
 	static function rtn($code, $value = array()) {
 		$rtn["value"] = $value;
 		$rtn["code"] = $code;
-	
+
 		self::out(json_encode($rtn));
 		self::end();
 	}
@@ -341,15 +342,15 @@ class bs{
 	static function reload( $target = FALSE ){self::script( ( $target ? $target.'.' : '' ).".location.reload();" );}
 	static function back(){self::script("history.back();");}
 	static function alert($v){self::script("alert('".$v."');");}
-	
+
 	static function db2html($v){return  preg_replace( '/\n|\r\n|\r/', '<br/>', str_replace( '<', '&lt;', $val ) );}
 	static function isnum($v){return preg_match( '/^[0-9.]+$/', $v );}
-	
+
 	static function rand( $v0, $v1 ){return mt_rand( $v0, $v1 );}
-	
+
 	static function limit( $page, $rpp ){return ( $page - 1 ) * $rpp;}
 	static function tp( $total, $rpp ){return (int)( ( $total - 1 ) / $rpp ) + 1;}
-	
+
 	static private $serverKey = NULL;
 	static function server($k){
 		if( self::$serverKey === NULL ) self::$serverKey = array(
@@ -467,7 +468,7 @@ class bs{
 	static private function applicationConn(){
 		if( !APPLICATION ) return FALSE;
 		if( !self::$applicationConn ){
-			$info = self::json(self::file(DB.APPLICATION.'/db.json'));
+			$info = self::json(self::file(DB.APPLICATION.DB_FILE));
 			$conn = @mysql_connect( $info['url'], $info['id'], $info['pw'] );
 			if( !$conn ) return FALSE;
 			self::$applicationConn = $conn;
@@ -490,9 +491,9 @@ class bs{
 			$arg = func_get_args();
 			$v = @mysql_real_escape_string($arg[1]);
 			if( APPLICATION_MAX < strlen($v) ) return FALSE;
-			return @mysql_query( 
-				$arg[1] === NULL ? str_replace( '@k@', $key, APPLICATION_DEL ) : str_replace( '@v@', $v, str_replace( '@k@', $key, APPLICATION_SET ) ), 
-				$conn 
+			return @mysql_query(
+				$arg[1] === NULL ? str_replace( '@k@', $key, APPLICATION_DEL ) : str_replace( '@v@', $v, str_replace( '@k@', $key, APPLICATION_SET ) ),
+				$conn
 			);
 		}
 	}
@@ -535,7 +536,7 @@ class bs{
 		}
 	}
 	static function db($key, $cache = TRUE ){
-		if( !isset(self::$db[$key]) ) self::$db[$key] = self::json(self::appFile( '@BS@'.self::$dbCurr.'.db:'.$key, DB.$key.'/db.json', $cache ));
+		if( !isset(self::$db[$key]) ) self::$db[$key] = self::json(self::appFile( '@BS@'.self::$dbCurr.'.db:'.$key, DB.$key.DB_FILE, $cache ));
 		self::$dbCurr = $key;
 	}
 	static function dbSync( $master, $slaves, $tables = NULL ){
@@ -653,10 +654,10 @@ class bs{
 				$autoIncrement = $info[2];
 				$allowNull = $info[3];
 				$defaultValue = $info[4];
-				
+
 				if(!isset($data[$k]) && isset($defaultValue)) {
 					$data[$k] = $defaultValue;
-				}				
+				}
 				if( !isset($data[$k]) && !$allowNull ){
 					self::rtn(HttpResponse::BAD_REQUEST, 'NoData:'.$k);
 				}
@@ -675,7 +676,7 @@ class bs{
 					}
 				}
 				$query = str_replace( '@'.$k.'@', $v, $query );
-			}			
+			}
 		}
 		foreach($data as $k=>$v) {
 			$query = str_replace( '@'.$k.'@', $v, $query );
