@@ -585,9 +585,9 @@ class bs{
 					if( strpos( $type, 'char' ) !== FALSE ){
 						$isStr = TRUE;
 						if( strpos( $type, 'max_length' ) === FALSE ) $validation .= 'max_length['.substr( $type, strpos( $type, '(' ) + 1, -1 ).']';
-					}else if( strpos( $type, 'text' ) !== FALSE || strpos( $type, 'blob' ) !== FALSE || strpos( $type, 'binary' ) !== FALSE || strpos( $type, 'enum' ) !== FALSE || strpos( $type, 'set' ) !== FALSE ){
+					}else if( strpos( $type, 'text' ) !== FALSE || strpos( $type, 'blob' ) !== FALSE || strpos( $type, 'binary' ) !== FALSE || strpos( $type, 'enum' ) !== FALSE || strpos( $type, 'set' ) !== FALSE || strpos( $type, 'datetime' ) !== FALSE || strpos( $type, 'timestamp' ) !== FALSE || strpos( $type, 'date' ) !== FALSE ){
 						$isStr = TRUE;
-					}else if( strpos( $type, 'int' ) !== FALSE || strpos( $type, 'timestamp' ) !== FALSE || strpos( $type, 'year' ) !== FALSE ){
+					}else if( strpos( $type, 'int' ) !== FALSE || strpos( $type, 'year' ) !== FALSE ){
 						if( strpos( $type, 'integer' ) === FALSE ) $validation .= 'integer';
 					}else if( strpos( $type, 'decimal' ) !== FALSE || strpos( $type, 'float' ) !== FALSE || strpos( $type, 'double' ) !== FALSE || strpos( $type, 'real' ) !== FALSE ){
 						if( strpos( $type, 'decimal' ) === FALSE ) $validation .= 'decimal';
