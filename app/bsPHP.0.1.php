@@ -29,14 +29,12 @@ define( 'APPLICATION_SET', "insert into ".APPLICATION_TABLE."(k,v)values('@k@','
 define( 'APPLICATION_DEL', "delete from ".APPLICATION_TABLE." where k='@k@'" );
 
 // HttpResponse Code
-class HttpResponse {
-    const OK                     = 200;
-    const BAD_REQUEST            = 400;
-    const UNAUTHORIZED           = 401;
-    const FORBIDDEN              = 403;
-    const NOT_FOUND              = 404;
-    const INTERNAL_SERVER_ERROR  = 500;
-};
+define( 'HTTP_OK', 200 );
+define( 'HTTP_BAD_REQUEST', 400 );
+define( 'HTTP_UNAUTHORIZED', 401 );
+define( 'HTTP_FORBIDDEN', 403 );
+define( 'HTTP_NOT_FOUND', 404 );
+define( 'HTTP_INTERNAL_SERVER_ERROR', 500 );
 
 class bs{
 	static private $controller;
@@ -94,7 +92,7 @@ class bs{
 			self::dbClose();
 			ob_end_flush();
 		}
-		else echo( '404' );
+		else self::response( HTTP_NOT_FOUND, 'Controller Not Found :'.$_SERVER['REQUEST_URI'] );
 	}
 	//view
 	static function view( $key, $cache = TRUE ){
@@ -166,11 +164,11 @@ class bs{
 		}
 	}
 	//http
-	static function rtn($code, $value = array()) {
-		$rtn["value"] = $value;
-		$rtn["code"] = $code;
-
-		self::out(json_encode($rtn));
+	static function response( $code, $v ){
+		http_response_code($code);
+		$t0 = array();
+		$t0[$code] = $v;
+		self::out(json_encode($t0));
 		self::end();
 	}
 	static function out(){
@@ -632,6 +630,7 @@ class bs{
 		foreach( self::json(self::appFile( '@BS@'.self::$dbCurr.'.sql:'.$key, DB.self::$dbCurr.'/sql/'.$key.'.json', $cache )) as $k=>$v ) self::$sqlJSON[trim($k)] = trim($v);
 	}
 	//query
+	static $queryError = 0;
 	static $queryCount = 0;
 	static $queryInsertID = 0;
 	static function queryBegin(){
@@ -647,7 +646,8 @@ class bs{
 		if( $data === NULL ) $data = $_POST;
 		if( count(self::$sqlInfo[$key]) > 0 ){
 			if( count($data) == 0 ){
-				self::rtn(HttpResponse::BAD_REQUEST, 'NoData:'.$k);
+				self::$queryError = 'NoData:'.$k;
+				return FALSE;
 			}
 			$validation = array();
 			foreach( self::$sqlInfo[$key] as $k=>$info ){
@@ -659,13 +659,15 @@ class bs{
 					$data[$k] = $defaultValue;
 				}
 				if( !isset($data[$k]) && !$allowNull ){
-					self::rtn(HttpResponse::BAD_REQUEST, 'NoData:'.$k);
+					self::$queryError = 'NoData:'.$k;
+					return FALSE;
 				}
 				$v = @mysql_real_escape_string($data[$k]);
 				if( $info[0] ){
 					$v = self::vali( $v, $info[0], $data );
 					if( $v === self::$valiFail ){
-						self::rtn(HttpResponse::BAD_REQUEST, 'VALI:'.self::$valiError);
+						self::$queryError = 'VALI:'.self::$valiError;
+						return FALSE;
 					}
 				}
 				if( $info[1] === TRUE ) {
@@ -687,7 +689,8 @@ class bs{
 			self::$queryInsertID = strpos( strtolower(substr( $query, 0, 6 )), 'insert' ) !== FALSE ? @mysql_insert_id() : 0;
 			return TRUE;
 		}else if( $rs === FALSE ){
-			self::rtn(HttpResponse::BAD_REQUEST, 'query:'.$query.' ERR:'.@mysql_error());
+			self::$queryError = 'ERR:'.@mysql_error();
+			return FALSE;
 		}else{
 			self::$queryCount = $count = @mysql_num_rows($rs);
 			if( $count === 0 ){
