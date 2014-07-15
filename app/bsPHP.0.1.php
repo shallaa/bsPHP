@@ -651,16 +651,14 @@ class bs{
 			}
 			$validation = array();
 			foreach( self::$sqlInfo[$key] as $k=>$info ){
-				$autoIncrement = $info[2];
-				$allowNull = $info[3];
-				$defaultValue = $info[4];
-
-				if(!isset($data[$k]) && isset($defaultValue)) {
-					$data[$k] = $defaultValue;
-				}
-				if( !isset($data[$k]) && !$allowNull ){
-					self::$queryError = 'NoData:'.$k;
-					return FALSE;
+				//$autoIncrement = $info[2];
+				if( !isset($data[$k]) ){
+					$default = $info[4];
+					if( !$info[3] && $default === NULL ){
+						self::$queryError = 'NoData:'.$k;
+						return FALSE;	
+					}
+					$data[$k] = $default;
 				}
 				$v = @mysql_real_escape_string($data[$k]);
 				if( $info[0] ){
@@ -670,18 +668,9 @@ class bs{
 						return FALSE;
 					}
 				}
-				if( $info[1] === TRUE ) {
-					if(!isset($data[$k])) {
-						$v = 'NULL';
-					} else {
-						$v = "'".str_replace( "'", "''", $v )."'";
-					}
-				}
+				if( $info[1] === TRUE ) $v = "'".str_replace( "'", "''", $v )."'";
 				$query = str_replace( '@'.$k.'@', $v, $query );
 			}
-		}
-		foreach($data as $k=>$v) {
-			$query = str_replace( '@'.$k.'@', $v, $query );
 		}
 		$rs = @mysql_query( $query, self::dbOpen() );
 		if( $rs === TRUE ){
@@ -694,7 +683,8 @@ class bs{
 		}else{
 			self::$queryCount = $count = @mysql_num_rows($rs);
 			if( $count === 0 ){
-				return array();
+				self::$queryError = 'NoRecord';
+				return FALSE;
 			}
 			$type = self::$sql[$key][2];
 			switch( $type ){
