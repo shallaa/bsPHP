@@ -534,7 +534,7 @@ class bs{
 		}
 	}
 	static function db($key, $cache = TRUE ){
-		if( !isset(self::$db[$key]) ) self::$db[$key] = self::json(self::appFile( '@BS@'.self::$dbCurr.'.db:'.$key, DB.$key.DB_FILE, $cache ));
+		if( !isset(self::$db[$key]) ) self::$db[$key] = self::json(self::appFile( '@BS@'.self::$dbCurr.'.db:'.$key, DB.$key.'/'.DB_FILE, $cache ));
 		self::$dbCurr = $key;
 	}
 	static function dbSync( $master, $slaves, $tables = NULL ){
@@ -676,7 +676,7 @@ class bs{
 				if( !isset($data[$k]) ){
 					if( $info === FALSE || ( !$info[3] && $info[4] === NULL ) ){
 						self::$queryError = 'NoData:'.$k;
-						return FALSE;	
+						return FALSE;
 					}
 					$data[$k] = $info[4];
 				}
