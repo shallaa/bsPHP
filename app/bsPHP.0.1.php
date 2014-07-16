@@ -13,7 +13,7 @@ define( 'DEFAULT_CONTROLLER', 'index'.EXT );
 define( 'DEFAULT_METHOD', 'index' );
 //path
 define( 'DB', APP.'db/' );
-define( 'DB_FILE', '/db.json' );
+define( 'DB_FILE', 'db.json' );
 define( 'SITE', APP.'sites/'.ID.'/' );
 define( 'CONFIG', SITE.'config'.EXT );
 define( 'CONTROLLER', SITE.'controller/' );
@@ -466,7 +466,7 @@ class bs{
 	static private function applicationConn(){
 		if( !APPLICATION ) return FALSE;
 		if( !self::$applicationConn ){
-			$info = self::json(self::file(DB.APPLICATION.DB_FILE));
+			$info = self::json(self::file(DB.APPLICATION.'/'.DB_FILE));
 			$conn = @mysql_connect( $info['url'], $info['id'], $info['pw'] );
 			if( !$conn ) return FALSE;
 			self::$applicationConn = $conn;
@@ -563,54 +563,80 @@ class bs{
 	//sql
 	static private $sqlJSON = array();
 	static private $sql = array( '@INFO'=>array( 'SHOW FULL COLUMNS FROM @table@', 0, 'object' ) );
-	static private $sqlInfo = array( '@INFO'=>array( 'table'=>array( FALSE, FALSE, FALSE, FALSE, NULL ) ) );
+	static private $sqlInfo = array( '@INFO'=>array( 'table'=>FALSE ) );
 	static private $sqlKey;
 	static private $sqlTable = array();
 	static $tableInfo = array();
+	static private function tableInfo($table){
+		$rs = self::query( '@INFO', array( 'table'=>$table ) );
+		$info = array();
+		for( $i = 0, $j = count($rs) ; $i < $j ; $i++ ){
+			$row = $rs[$i];
+			$type = strtolower($row->Type);
+			$isStr = FALSE;
+			$validation = '';
+			$comment = preg_replace( '/\/[*](.+)[*]\//', '$1', $row->Comment );
+			if( $comment == '/**/' ) $comment = '';
+			if( strpos( $type, 'char' ) !== FALSE ){
+				$isStr = TRUE;
+				if( strpos( $type, 'max_length' ) === FALSE ) $validation .= 'max_length['.substr( $type, strpos( $type, '(' ) + 1, -1 ).']';
+			}else if( strpos( $type, 'text' ) !== FALSE || strpos( $type, 'blob' ) !== FALSE || strpos( $type, 'binary' ) !== FALSE || strpos( $type, 'enum' ) !== FALSE || strpos( $type, 'set' ) !== FALSE || strpos( $type, 'datetime' ) !== FALSE || strpos( $type, 'timestamp' ) !== FALSE || strpos( $type, 'date' ) !== FALSE ){
+				$isStr = TRUE;
+			}else if( strpos( $type, 'int' ) !== FALSE || strpos( $type, 'year' ) !== FALSE ){
+				if( strpos( $type, 'integer' ) === FALSE ) $validation .= 'integer';
+			}else if( strpos( $type, 'decimal' ) !== FALSE || strpos( $type, 'float' ) !== FALSE || strpos( $type, 'double' ) !== FALSE || strpos( $type, 'real' ) !== FALSE ){
+				if( strpos( $type, 'decimal' ) === FALSE ) $validation .= 'decimal';
+			}
+			$info[$row->Field] = array(
+				$validation.( $validation !== '' && $comment !== '' ? '|' : '' ).$comment,
+				$isStr,
+				strtolower($row->Extra) === 'auto_increment' ? TRUE : FALSE,
+				strtolower($row->Null) === 'yes' ? TRUE : FALSE,
+				$isStr ? $row->Default : intval($row->Default, 10),
+				TRUE//isEscape
+			);
+		}
+		return $info;
+	}
+	static function table2json(){
+		 for( $arg = func_get_args(), $i = 0, $j = func_num_args() ; $i < $j ; $i++ ){
+			$info = self::tableInfo($arg[$i]);
+			self::file( DB.self::$dbCurr.'/table/'.$arg[$i].'.json', json_encode( $info, 256 ) );
+			if( APPLICATION ) self::application( '@BS@'.self::$dbCurr.'.table:'.$arg[$i], $info );
+		 }
+		 return $info;
+	}
 	static private function sqlTable( $table ){
 		if( !isset(self::$sqlTable[$table]) ){
 			$info = self::appFile( $appKey = '@BS@'.self::$dbCurr.'.table:'.$table, $path = DB.self::$dbCurr.'/table/'.$table.'.json' );
 			if( $info === FALSE ){
-				$rs = self::query( '@INFO', array( 'table'=>$table ) );
-				$info = array();
-				for( $i = 0, $j = count($rs) ; $i < $j ; $i++ ){
-					$row = $rs[$i];
-					$type = strtolower($row->Type);
-					$isStr = FALSE;
-					$validation = '';
-					$comment = preg_replace( '/\/[*](.+)[*]\//', '$1', $row->Comment );
-					if( $comment == '/**/' ) $comment = '';
-					if( strpos( $type, 'char' ) !== FALSE ){
-						$isStr = TRUE;
-						if( strpos( $type, 'max_length' ) === FALSE ) $validation .= 'max_length['.substr( $type, strpos( $type, '(' ) + 1, -1 ).']';
-					}else if( strpos( $type, 'text' ) !== FALSE || strpos( $type, 'blob' ) !== FALSE || strpos( $type, 'binary' ) !== FALSE || strpos( $type, 'enum' ) !== FALSE || strpos( $type, 'set' ) !== FALSE || strpos( $type, 'datetime' ) !== FALSE || strpos( $type, 'timestamp' ) !== FALSE || strpos( $type, 'date' ) !== FALSE ){
-						$isStr = TRUE;
-					}else if( strpos( $type, 'int' ) !== FALSE || strpos( $type, 'year' ) !== FALSE ){
-						if( strpos( $type, 'integer' ) === FALSE ) $validation .= 'integer';
-					}else if( strpos( $type, 'decimal' ) !== FALSE || strpos( $type, 'float' ) !== FALSE || strpos( $type, 'double' ) !== FALSE || strpos( $type, 'real' ) !== FALSE ){
-						if( strpos( $type, 'decimal' ) === FALSE ) $validation .= 'decimal';
-					}
-					$info[$row->Field] = array(
-						$validation.( $validation !== '' && $comment !== '' ? '|' : '' ).$comment,
-						$isStr,
-						strtolower($row->Extra) === 'auto_increment' ? TRUE : FALSE,
-						strtolower($row->Null) === 'yes' ? TRUE : FALSE,
-						$isStr ? $row->Default : intval($row->Default, 10)
-					);
-				}
-				self::file( $path, json_encode( $info, 256 ) );
-				if( APPLICATION ) self::application( $appKey, $info );
+				$info = self::table2json($table);
 			}else $info = json_decode( $info, true );
 			self::$sqlTable[$table] = $info;
 		}
 		return self::$sqlTable[$table];
 	}
 	static function sqlParse($str){
-		if( strpos( $str[0], ':' ) === FALSE ) return $str[0];
+		if( strpos( $str[0], ':' ) === FALSE ){
+			self::$sqlInfo[self::$sqlKey][substr( $str[0], 1, -1 )] = FALSE;
+			return $str[0];
+		}
 		$str = explode( ':', $str[0] );
-		$meta = explode( '.', $str[1] );
-		$vali = self::sqlTable($meta[0]);
-		self::$sqlInfo[self::$sqlKey][substr( $str[0], 1 )] = $vali[substr( $meta[1], 0, -1 )];
+		if( strpos( $str[1], '.' ) === FALSE ){
+			$vali = $isStr = FALSE;
+			switch( $str[1] ){
+			case'none':break;
+			case'json':case'string':$isStr = TRUE; break;
+			case'integer':$vali = 'integer'; break;
+			case'double':case'float':$vali = 'decimal'; break;
+			case'null':$vali = 'bs_null'; break;
+			}
+			self::$sqlInfo[self::$sqlKey][substr( $str[0], 1 )] = array( $vali, $isStr, FALSE, $str[1] == 'null', count($str) == 3 ? substr( $str[2], 0, -1 ) : NULL, FALSE );
+		}else{
+			$meta = explode( '.', $str[1] );
+			$vali = self::sqlTable($meta[0]);
+			self::$sqlInfo[self::$sqlKey][substr( $str[0], 1 )] = $vali[substr( $meta[1], 0, -1 )];
+		}
 		return $str[0].'@';
 	}
 	static private function sqlAdd( $key ){//4000
@@ -645,30 +671,28 @@ class bs{
 		$isDML = self::$sql[$key][1];
 		if( $data === NULL ) $data = $_POST;
 		if( count(self::$sqlInfo[$key]) > 0 ){
-			if( count($data) == 0 ){
-				self::$queryError = 'NoData:'.$k;
-				return FALSE;
-			}
 			$validation = array();
 			foreach( self::$sqlInfo[$key] as $k=>$info ){
-				//$autoIncrement = $info[2];
 				if( !isset($data[$k]) ){
-					$default = $info[4];
-					if( !$info[3] && $default === NULL ){
+					if( $info === FALSE || ( !$info[3] && $info[4] === NULL ) ){
 						self::$queryError = 'NoData:'.$k;
 						return FALSE;	
 					}
-					$data[$k] = $default;
+					$data[$k] = $info[4];
 				}
-				$v = @mysql_real_escape_string($data[$k]);
-				if( $info[0] ){
-					$v = self::vali( $v, $info[0], $data );
-					if( $v === self::$valiFail ){
-						self::$queryError = 'VALI:'.self::$valiError;
-						return FALSE;
+				$v = $data[$k];
+				if( $info !== FALSE ){
+					//$autoIncrement = $info[2];
+					if( $info[5] ) $v = @mysql_real_escape_string($v);
+					if( $info[0] ){
+						$v = self::vali( $v, $info[0], $data );
+						if( $v === self::$valiFail ){
+							self::$queryError = 'VALI:'.self::$valiError;
+							return FALSE;
+						}
 					}
+					if( $info[1] === TRUE ) $v = "'".str_replace( "'", "''", $v )."'";
 				}
-				if( $info[1] === TRUE ) $v = "'".str_replace( "'", "''", $v )."'";
 				$query = str_replace( '@'.$k.'@', $v, $query );
 			}
 		}
@@ -745,6 +769,16 @@ class bs{
 				$f = substr( $f, 0, $k );
 			}else $arg = FALSE;
 			switch( $f ){
+			//bs original
+			case'bs_equal':
+				if( !$arg || !$arg[0] || $arg[0] != $v ) return $fail;
+				break;
+			case'bs_not':
+				if( !$arg || !$arg[0] || $arg[0] == $v ) return $fail;
+				break;
+			case'bs_null':
+				if( $v !== NULL ) return $fail;
+				break;
 			case'required':
 				if( empty($v) ) return $fail;
 				break;
