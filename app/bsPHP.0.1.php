@@ -4,7 +4,6 @@
  * http://www.bsplugin.com All rights reserved.
  * Licensed under the BSD license. See http://opensource.org/licenses/BSD-3-Clause
  */
-define( 'ROOT', realpath('').'/' );
 define( 'APP', ROOT.'app/' );
 //info
 define( 'EXT', '.php' );
@@ -86,7 +85,7 @@ class bs{
 					array_shift($uri);
 				}else $method = DEFAULT_METHOD;
 			}
-			header('Content-Type: text/html; charset=utf-8');
+			if(! SHELL_MODE) header('Content-Type: text/html; charset=utf-8');
 			ob_start();
 			self::apply( $controller, $method, $uri );
 			self::dbClose();
@@ -888,6 +887,12 @@ class bs{
 		}
 		return $file;
 	}
+}
+if( SHELL_MODE ){
+	$_SERVER['SCRIPT_NAME'] = '/'.str_replace( ROOT, '', $_SERVER['argv'][0] );
+	$_SERVER['REQUEST_URI'] = $_SERVER['SCRIPT_NAME'].'/';			
+	array_shift($_SERVER['argv']);
+	$_SERVER['REQUEST_URI'] .= implode( "/", $_SERVER['argv'] );
 }
 bs::route();
 ?>
