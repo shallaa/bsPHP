@@ -1,28 +1,44 @@
 <?php
-/* bsPHP v0.1
+/* bsPHP v0.1.3
  * Copyright (c) 2013 by ProjectBS Committe and contributors.
  * http://www.bsplugin.com All rights reserved.
  * Licensed under the BSD license. See http://opensource.org/licenses/BSD-3-Clause
  */
-//application
-define( 'APPLICATION', 'local' );
-define( 'APPLICATION_TABLE', 'application' );
-define( 'APPLICATION_MAX', 20000 );
-define( 'APPLICATION_NEW', 'CREATE TABLE IF NOT EXISTS '.APPLICATION_TABLE.'(k varchar(255)NOT NULL,v varchar('.APPLICATION_MAX.')NOT NULL,PRIMARY KEY(k))ENGINE=MEMORY DEFAULT CHARSET=utf8' );
-define( 'APPLICATION_GET', "select v from ".APPLICATION_TABLE." where k='@k@'" );
-define( 'APPLICATION_SET', "insert into ".APPLICATION_TABLE."(k,v)values('@k@','@v@')on duplicate key update v='@v@'" );
-define( 'APPLICATION_DEL', "delete from ".APPLICATION_TABLE." where k='@k@'" );
-
-// HttpResponse Code
-define( 'HTTP_OK', 200 );
-define( 'HTTP_BAD_REQUEST', 400 );
-define( 'HTTP_UNAUTHORIZED', 401 );
-define( 'HTTP_FORBIDDEN', 403 );
-define( 'HTTP_NOT_FOUND', 404 );
-define( 'HTTP_INTERNAL_SERVER_ERROR', 500 );
-
 class bs{
+	static private function DEFINE(){
+		define( 'APP', ROOT.'app/' );
+		//info
+		define( 'EXT', '.php' );
+		define( 'CONTROLLER_CLASS', 'Controller' );
+		define( 'DEFAULT_CONTROLLER', 'index'.EXT );
+		define( 'DEFAULT_METHOD', 'index' );
+		//path
+		define( 'DB', APP.'db/' );
+		define( 'DB_FILE', 'db.json' );
+		define( 'SITE', APP.'sites/'.ID.'/' );
+		define( 'CONFIG', SITE.'config'.EXT );
+		define( 'CONTROLLER', SITE.'controller/' );
+		define( 'VIEW', SITE.'view/' );
+		//application
+		define( 'APPLICATION', 'local' );
+		define( 'APPLICATION_TABLE', 'application' );
+		define( 'APPLICATION_MAX', 20000 );
+		define( 'APPLICATION_NEW', 'CREATE TABLE IF NOT EXISTS '.APPLICATION_TABLE.'(k varchar(255)NOT NULL,v varchar('.APPLICATION_MAX.')NOT NULL,PRIMARY KEY(k))ENGINE=MEMORY DEFAULT CHARSET=utf8' );
+		define( 'APPLICATION_GET', "select v from ".APPLICATION_TABLE." where k='@k@'" );
+		define( 'APPLICATION_SET', "insert into ".APPLICATION_TABLE."(k,v)values('@k@','@v@')on duplicate key update v='@v@'" );
+		define( 'APPLICATION_DEL', "delete from ".APPLICATION_TABLE." where k='@k@'" );
+		// HttpResponse Code
+		define( 'HTTP_OK', 200 );
+		define( 'HTTP_BAD_REQUEST', 400 );
+		define( 'HTTP_UNAUTHORIZED', 401 );
+		define( 'HTTP_FORBIDDEN', 403 );
+		define( 'HTTP_NOT_FOUND', 404 );
+		define( 'HTTP_INTERNAL_SERVER_ERROR', 500 );
+	}
+	static private $isStarted = FALSE;
 	static function start(){
+		if( self::$isStarted ) return;
+		self::$isStarted = TRUE;
 		if( defined('STDIN') ){
 			if( count($_SERVER['argv']) == 3 ){
 				define( 'SHELL_MODE', TRUE );
@@ -41,23 +57,11 @@ class bs{
 			define( 'SHELL_MODE', FALSE );
 			define( 'ROOT', realpath('').'/' );
 		}
-		define( 'APP', ROOT.'app/' );
-		//info
-		define( 'EXT', '.php' );
-		define( 'CONTROLLER_CLASS', 'Controller' );
-		define( 'DEFAULT_CONTROLLER', 'index'.EXT );
-		define( 'DEFAULT_METHOD', 'index' );
-		//path
-		define( 'DB', APP.'db/' );
-		define( 'DB_FILE', 'db.json' );
-		define( 'SITE', APP.'sites/'.ID.'/' );
-		define( 'CONFIG', SITE.'config'.EXT );
-		define( 'CONTROLLER', SITE.'controller/' );
-		define( 'VIEW', SITE.'view/' );
-		bs::route();
+		self::DEFINE();
+		self::route();
 	}
 	static private $controller;
-	static function route( $uri = NULL ){
+	static private function route( $uri = NULL ){
 		if( !isset($_SERVER['REQUEST_URI']) || !isset($_SERVER['SCRIPT_NAME']) ) return;
 		$uri = $_SERVER['REQUEST_URI'];
 		$script = $_SERVER['SCRIPT_NAME'];
