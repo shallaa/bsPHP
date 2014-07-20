@@ -4,20 +4,6 @@
  * http://www.bsplugin.com All rights reserved.
  * Licensed under the BSD license. See http://opensource.org/licenses/BSD-3-Clause
  */
-define( 'APP', ROOT.'app/' );
-//info
-define( 'EXT', '.php' );
-define( 'CONTROLLER_CLASS', 'Controller' );
-define( 'DEFAULT_CONTROLLER', 'index'.EXT );
-define( 'DEFAULT_METHOD', 'index' );
-//path
-define( 'DB', APP.'db/' );
-define( 'DB_FILE', 'db.json' );
-define( 'SITE', APP.'sites/'.ID.'/' );
-define( 'CONFIG', SITE.'config'.EXT );
-define( 'CONTROLLER', SITE.'controller/' );
-define( 'VIEW', SITE.'view/' );
-
 //application
 define( 'APPLICATION', 'local' );
 define( 'APPLICATION_TABLE', 'application' );
@@ -36,8 +22,42 @@ define( 'HTTP_NOT_FOUND', 404 );
 define( 'HTTP_INTERNAL_SERVER_ERROR', 500 );
 
 class bs{
+	static function start(){
+		if( defined('STDIN') ){
+			if( count($_SERVER['argv']) == 3 ){
+				define( 'SHELL_MODE', TRUE );
+				$arg = $_SERVER['argv'];
+				$abs = str_replace( '\\', '/', realpath('') );
+				$path = str_replace( '\\', '/', $arg[0] );
+				if( strpos( $path, $abs ) !== 0 ) $path = $abs.( $path[0] != '/' ? '/' : '' ).$path;
+				$root = explode( '/', $path );
+				array_splice( $root, -2);
+				define( 'ROOT', implode( '/', $root ).'/' );
+				define( 'ID', $arg[1] );
+				$_SERVER['SCRIPT_NAME'] = $path;
+				$_SERVER['REQUEST_URI'] = $path.$arg[2];
+			}else exit('invalid param : php -f bsPath siteID routePath' );
+		}else{
+			define( 'SHELL_MODE', FALSE );
+			define( 'ROOT', realpath('').'/' );
+		}
+		define( 'APP', ROOT.'app/' );
+		//info
+		define( 'EXT', '.php' );
+		define( 'CONTROLLER_CLASS', 'Controller' );
+		define( 'DEFAULT_CONTROLLER', 'index'.EXT );
+		define( 'DEFAULT_METHOD', 'index' );
+		//path
+		define( 'DB', APP.'db/' );
+		define( 'DB_FILE', 'db.json' );
+		define( 'SITE', APP.'sites/'.ID.'/' );
+		define( 'CONFIG', SITE.'config'.EXT );
+		define( 'CONTROLLER', SITE.'controller/' );
+		define( 'VIEW', SITE.'view/' );
+		bs::route();
+	}
 	static private $controller;
-	static function route(){
+	static function route( $uri = NULL ){
 		if( !isset($_SERVER['REQUEST_URI']) || !isset($_SERVER['SCRIPT_NAME']) ) return;
 		$uri = $_SERVER['REQUEST_URI'];
 		$script = $_SERVER['SCRIPT_NAME'];
@@ -70,9 +90,7 @@ class bs{
 				require_once $dir.'/'.$uri[0].EXT;
 				array_shift($uri);
 				$i++;
-			}else if( file_exists( $dir.'/'.DEFAULT_CONTROLLER ) ){
-				require_once $dir.'/'.DEFAULT_CONTROLLER;
-			}
+			}else if( file_exists( $dir.'/'.DEFAULT_CONTROLLER ) ) require_once $dir.'/'.DEFAULT_CONTROLLER;
 			if( $j - $i > 0 ) $method = false;
 		}
 		if( class_exists(CONTROLLER_CLASS) ){
@@ -476,7 +494,7 @@ class bs{
 	}
 	static function application($key){
 		$conn = self::applicationConn();
-		if( !$conn ) return self::err( 1000, '' );
+		if( !$conn ) return self::err( 1000, $key );
 		$j = func_num_args();
 		$key = @mysql_real_escape_string($key);
 		if( $j == 1 ){
@@ -888,11 +906,5 @@ class bs{
 		return $file;
 	}
 }
-if( SHELL_MODE ){
-	$_SERVER['SCRIPT_NAME'] = '/'.str_replace( ROOT, '', $_SERVER['argv'][0] );
-	$_SERVER['REQUEST_URI'] = $_SERVER['SCRIPT_NAME'].'/';			
-	array_shift($_SERVER['argv']);
-	$_SERVER['REQUEST_URI'] .= implode( "/", $_SERVER['argv'] );
-}
-bs::route();
+bs::start();
 ?>
