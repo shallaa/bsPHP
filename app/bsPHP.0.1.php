@@ -1,5 +1,5 @@
 <?php
-/* bsPHP v0.1.3
+/* bsPHP v0.1.4
  * Copyright (c) 2013 by ProjectBS Committe and contributors.
  * http://www.bsplugin.com All rights reserved.
  * Licensed under the BSD license. See http://opensource.org/licenses/BSD-3-Clause
@@ -40,7 +40,7 @@ class bs{
 		if( self::$isStarted ) return;
 		self::$isStarted = TRUE;
 		if( defined('STDIN') ){
-			if( count($_SERVER['argv']) == 3 ){
+			if( count($_SERVER['argv']) > 2 ){
 				define( 'SHELL_MODE', TRUE );
 				$arg = $_SERVER['argv'];
 				$abs = str_replace( '\\', '/', realpath('') );
@@ -52,12 +52,15 @@ class bs{
 				define( 'ID', $arg[1] );
 				$_SERVER['SCRIPT_NAME'] = $path;
 				$_SERVER['REQUEST_URI'] = $path.$arg[2];
-			}else exit('invalid param : php -f bsPath siteID routePath' );
+			}else exit('invalid param : php -f bsPath siteID routePath [mode] '.count($_SERVER['argv']) );
 		}else{
 			define( 'SHELL_MODE', FALSE );
 			define( 'ROOT', realpath('').'/' );
 		}
 		self::DEFINE();
+		if( SHELL_MODE ){
+			if( isset($arg[3]) || $arg[3] == 'util' ) return;
+		}else if( defined('BSMODE') || @BSMODE == 'util' ) return;
 		self::route();
 	}
 	static private $controller;
