@@ -59,7 +59,7 @@ class bs{
 		}
 		self::DEFINE();
 		if( SHELL_MODE ){
-			if( isset($arg[3]) || $arg[3] == 'util' ) return;
+			if( isset($arg[3]) || @$arg[3] == 'util' ) return;
 		}else if( defined('BSMODE') || @BSMODE == 'util' ) return;
 		self::route();
 	}
