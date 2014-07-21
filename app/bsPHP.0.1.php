@@ -59,7 +59,7 @@ class bs{
 		}
 		self::DEFINE();
 		if( SHELL_MODE ){
-			if( isset($arg[3]) || $arg[3] == 'util' ) return;
+			if( isset($arg[3]) && $arg[3] == 'util' ) return;
 		}else if( defined('BSMODE') || @BSMODE == 'util' ) return;
 		self::route();
 	}
@@ -211,10 +211,12 @@ class bs{
 				if( isset($_POST[$k]) ){
 					$v = trim($_POST[$k]);
 					switch( $type[0] ){
-					case's':$v = (string)$v; break;
-					case'i':$v = (int)$v; break;
-					case'f':$v = (float)$v; break;
-					case'b':$v = (boolean)$v; break;
+					case's':case'string':$v = str_replace( '<', '&lt;', (string)$v ); break;
+					case'i':case'integer':$v = (int)$v; break;
+					case'f':case'd':case'float':case'double':$v = (float)$v; break;
+					case'b':case'boolean':$v = (boolean)$v; break;
+					case'br':$v = str_replace( '\n', '<br>', (string)$v ); break;
+					case'h':case'html':$v = (string)$v; break;
 					default:self:err( 20, $k );
 					}
 					$t0[$k] = $v;
