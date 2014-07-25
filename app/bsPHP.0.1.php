@@ -1,5 +1,5 @@
 <?php
-/* bsPHP v0.1.4
+/* bsPHP v0.1.5
  * Copyright (c) 2013 by ProjectBS Committe and contributors.
  * http://www.bsplugin.com All rights reserved.
  * Licensed under the BSD license. See http://opensource.org/licenses/BSD-3-Clause
@@ -52,7 +52,7 @@ class bs{
 				define( 'ID', $arg[1] );
 				$_SERVER['SCRIPT_NAME'] = $path;
 				$_SERVER['REQUEST_URI'] = $path.$arg[2];
-			}else exit('invalid param : php -f bsPath siteID routePath [mode] '.count($_SERVER['argv']) );
+			}else exit('invalid param : php -f bsPath siteID routePath [mode] : '.count($_SERVER['argv']) );
 		}else{
 			define( 'SHELL_MODE', FALSE );
 			define( 'ROOT', realpath('').'/' );
@@ -154,7 +154,7 @@ class bs{
 		return $v;
 	}
 	//file
-	static function file(){//10
+	static function file(){
 		$arg = func_get_args();
 		if( $arg[0] == '/' ) $arg = substr( $arg[0], 1 );
 		$base = $arg[0];
@@ -199,7 +199,7 @@ class bs{
 		for( $t0 = '', $i = 0, $j = func_num_args(), $arg = func_get_args() ; $i < $j ; $i++ ) $t0 .= $arg[$i];
 		echo($t0);
 	}
-	static function in(){//20
+	static function in(){
 		$j = func_num_args();
 		$t0 = array();
 		if( $j === 0 ){
@@ -217,10 +217,10 @@ class bs{
 					case'b':case'boolean':$v = (boolean)$v; break;
 					case'br':$v = str_replace( '\n', '<br>', (string)$v ); break;
 					case'h':case'html':$v = (string)$v; break;
-					default:self:err( 20, $k );
+					default:self:err( 20, $k.':'.$type[0] );
 					}
 					$t0[$k] = $v;
-				}else self::err( 20, $k );
+				}else self::err( 21, $k );
 			}
 		}
 		return $t0;
@@ -661,7 +661,7 @@ class bs{
 		}else{
 			$meta = explode( '.', $str[1] );
 			$vali = self::sqlTable($meta[0]);
-			self::$sqlInfo[self::$sqlKey][substr( $str[0], 1 )] = $vali[substr( $meta[1], 0, -1 )];
+			self::$sqlInfo[self::$sqlKey][substr( $str[0], 1 )] = $meta[1][0] == '[' ? array( '@'=>substr( $meta[1], 1, -2 ), 'table'=>$vali ) : $vali[substr( $meta[1], 0, -1 )];
 		}
 		return $str[0].'@';
 	}
@@ -691,7 +691,7 @@ class bs{
 	}
 	static function queryCommit(){@mysql_query( 'commit', self::dbOpen() );}
 	static function queryRollback(){@mysql_query( 'rollback', self::dbOpen() );}
-	static function query( $key, $data = NULL ){//5000
+	static function query( $key, $data = NULL ){
 		if( !isset(self::$sql[$key]) && !self::sqlAdd($key) ) return self::err( 5000, $key );
 		$query = self::$sql[$key][0];
 		$isDML = self::$sql[$key][1];
@@ -699,6 +699,18 @@ class bs{
 		if( count(self::$sqlInfo[$key]) > 0 ){
 			$validation = array();
 			foreach( self::$sqlInfo[$key] as $k=>$info ){
+				if( isset($info['@']) ){
+					if( isset($data[$info['@']]) ){
+						if( isset($info['table'][$data[$info['@']]]) ) $info = $info['table'][$data[$info['@']]];
+						else{
+							self::$queryError = 'NoFieldonTable:'.$data[$info['@']];
+							return FALSE;
+						}
+					}else{
+						self::$queryError = 'NoDataKey:'.$info['@'];
+						return FALSE;
+					}
+				}
 				if( !isset($data[$k]) ){
 					if( $info === FALSE || ( !$info[3] && $info[4] === NULL ) ){
 						self::$queryError = 'NoData:'.$k;

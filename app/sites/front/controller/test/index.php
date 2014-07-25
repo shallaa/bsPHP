@@ -141,7 +141,7 @@ class Controller{
 		bs::sql('member',FALSE);
 		switch( $mode ){
 		case'list':bs::view('db', FALSE); break;
-		case'add':bs::out( bs::query('add') ? bs::jsonEncode(bs::query( 'view', array( 'rowid'=>bs::$queryInsertID ) )) : '{"err":"'.bs::$queryError.'"}' ); break;
+		case'add':bs::out( bs::query('add') ? bs::jsonEncode(bs::query( 'view', array( 'rowid'=>bs::$queryInsertID, 'no'=>'testmember_rowid' ) )) : '{"err":"'.bs::$queryError.'"}' ); break;
 		case'del':case'edit':bs::out( bs::query($mode) ? '1' : bs::$queryError ); break;
 		case'update':
 			bs::queryBegin();

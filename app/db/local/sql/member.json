@@ -1,6 +1,6 @@
 {
 	"list":"select testmember_rowid no,userid id,nick from testmember order by @ord:none:testmember_rowid@",
-	"view":"@recordObject@select testmember_rowid no,userid id,nick from testmember where testmember_rowid=@rowid:testmember.testmember_rowid@",
+	"view":"@recordObject@select testmember_rowid no,userid id,nick from testmember where testmember_rowid=@rowid:testmember.[no]@",
 	"add":"insert into testmember(userid,pw,nick)values(@id:testmember.userid@,@pass:testmember.pw@,@nick:testmember.nick@)",
 	"edit":"update testmember set userid=@id:testmember.userid@,nick=@nick:testmember.nick@ where testmember_rowid=@no:testmember.testmember_rowid@",
 	"del":"delete from testmember where testmember_rowid=@no:testmember.testmember_rowid@"
