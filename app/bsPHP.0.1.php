@@ -717,7 +717,8 @@ class bs{
 							return FALSE;
 						}
 					}
-					if( $info[1] === TRUE ) $v = "'".str_replace( "'", "''", $v )."'";
+					if( $info[3] === TRUE && $v == "" ) $v = 'NULL';
+					else if( $info[1] === TRUE ) $v = "'".str_replace( "'", "''", $v )."'";
 				}
 				$query = str_replace( '@'.$k.'@', $v, $query );
 			}
