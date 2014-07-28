@@ -198,6 +198,7 @@ class bs{
 	static function out(){
 		for( $t0 = '', $i = 0, $j = func_num_args(), $arg = func_get_args() ; $i < $j ; $i++ ) $t0 .= $arg[$i];
 		echo($t0);
+		if(SHELL_MODE) echo("\n");
 	}
 	static function in(){
 		$j = func_num_args();
