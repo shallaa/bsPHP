@@ -555,6 +555,7 @@ class bs{
 	static private function dbClose(){
 		foreach( self::$db as $k=>$v ){
 			if( isset($v['conn']) &&  $v['conn'] !== FALSE ){
+				if( self::$isTransaction === TRUE ) self::queryRollback();
 				@mysql_close($v['conn']);
 				$v['conn'] = FALSE;
 			}
@@ -686,12 +687,24 @@ class bs{
 	static $queryError = 0;
 	static $queryCount = 0;
 	static $queryInsertID = 0;
+	static $isTransaction = FALSE;
 	static function queryBegin(){
+		self::$isTransaction = TRUE;
 		@mysql_query( 'set autocommit=0', self::dbOpen() );
 		@mysql_query( 'begin', self::dbOpen() );
 	}
-	static function queryCommit(){@mysql_query( 'commit', self::dbOpen() );}
-	static function queryRollback(){@mysql_query( 'rollback', self::dbOpen() );}
+	static function queryCommit(){
+		@mysql_query( 'commit', self::dbOpen() );
+		self::setQueryAutoCommit();
+	}
+	static function queryRollback(){
+		@mysql_query( 'rollback', self::dbOpen() );
+		self::setQueryAutoCommit();
+	}
+	static private function setQueryAutoCommit(){
+		@mysql_query( 'set autocommit=1', self::dbOpen() );
+		self::$isTransaction = FALSE;
+	}
 	static function query( $key, $data = NULL ){
 		if( !isset(self::$sql[$key]) && !self::sqlAdd($key) ) return self::err( 5000, $key );
 		$query = self::$sql[$key][0];
