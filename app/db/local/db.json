@@ -1,7 +1,7 @@
 {
 	"url":"localhost",
-	"id":"root",
-	"pw":"",
-	"db":"bsphp",
+	"id":"wmp",
+	"pw":"wmp12#$",
+	"db":"bswmp0",
 	"encoding":"utf8"
 }
