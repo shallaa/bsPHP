@@ -93,10 +93,7 @@ class bs{
 		$method = DEFAULT_METHOD;
 		
 		if( $uri == '/' || empty($uri) ){
-			if( file_exists(CONTROLLER.DEFAULT_CONTROLLER) ){
-				require_once CONTROLLER.DEFAULT_CONTROLLER;
-				$uri = array();
-			}
+			if( file_exists(CONTROLLER.DEFAULT_CONTROLLER) ) require_once CONTROLLER.DEFAULT_CONTROLLER;
 		}else{
 			$uri = explode( '/', str_replace( array( '//', '../' ), '/', trim( parse_url( $uri, PHP_URL_PATH ), '/' ) ) );
 			$i = 1;
