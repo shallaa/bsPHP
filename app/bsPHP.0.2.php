@@ -1,5 +1,5 @@
 <?php
-/* bsPHP v0.2.0
+/* bsPHP v0.2.1
  * Copyright (c) 2013 by ProjectBS Committe and contributors.
  * http://www.bsplugin.com All rights reserved.
  * Licensed under the BSD license. See http://opensource.org/licenses/BSD-3-Clause
@@ -259,45 +259,63 @@ class bs{
 	}
 	static private $curlBase = NULL;
 	static private $curlKey = NULL;
-	static private function curl( $url ){
+	static private function curlParam( $arg ){
+		$header = array(1);
+		$data = array();
+		for( $i = 0, $j = count($arg) ; $i < $j ; ){
+			$k = $arg[$i++];
+			$v = $arg[$i++];
+			if( $k[0] == '@' ){
+				array_push( $header, substr( $k, 1 ).': '.$v );
+			}else{
+				if( isset(self::$curlKey[$k]) ) $k = self::$curlKey[$k];
+				array_push( $data, self::encode($k).'='.self::encode($v) );
+			}
+		}
+		$header[0] = implode( '&', $data );
+	}
+	static private function curl( $url, $method, $arg ){
 		if( self::$curlBase === NULL ){
 			self::$curlBase = array( CURLOPT_HEADER, FALSE, CURLOPT_RETURNTRANSFER, TRUE, CURLOPT_SSL_VERIFYPEER, FALSE, CURLOPT_SSL_VERIFYHOST, 2 );
 			self::$curlKey = array( 'post'=>CURLOPT_POSTFIELDS, 'header'=>CURLOPT_HTTPHEADER, 'cookie'=>CURLOPT_COOKIE, 'method'=>CURLOPT_CUSTOMREQUEST );
 		}
 		$header = array();
-		for( $curl = curl_init($url), $arg = self::$curlBase, $i = 0, $j = count($arg) ; $i < $j ; ) curl_setopt( $curl, $arg[$i++], $arg[$i++] );
-		for( $arg = func_get_args(), $i = 1, $j = func_num_args() ; $i < $j ; ){
+		$t0 = array();
+		for( $i = 1, $j = count($arg) ; $i < $j ; ){
 			$k = $arg[$i++];
 			$v = $arg[$i++];
-			if( $k[0] == '@' ) array_push( $header, substr( $k, 1 ).': '.$v );
-			else{
-				if( $k == 'post' ) curl_setopt( $curl, CURLOPT_POST, TRUE );
+			if( $k[0] == '@' ){
+				array_push( $header, substr( $k, 1 ).': '.$v );
+			}else if( $k == 'POST' ){
+				$t0 = array($v);
+			}else{
 				if( isset(self::$curlKey[$k]) ) $k = self::$curlKey[$k];
-				if( is_array($v) ){
-					for( $v0 = array(), $m = 1, $n = count($v) ; $m < $n ; ) array_push( $v0, self::encode($v[$m++]).'='.self::encode($v[$m++]) );
-					$v = implode( '&', $v0 );
-				}
-				curl_setopt( $curl, $k, $v );
+				array_push( $t0, self::encode($k).'='.self::encode($v) );
 			}
 		}
+		$t0 = implode( '&', $t0 );
+		if( $method == 'GET' ){
+			if( $t0 ){
+				$url = explode( '#', $url );
+				$url[0] .= ( strpos( $url[0], '?' ) !== FALSE ? '&' : '?' ) . $t0;
+				$url = implode( '#', $url );
+			}
+		}
+		for( $curl = curl_init($url), $arg = self::$curlBase, $i = 0, $j = count($arg) ; $i < $j ; ) curl_setopt( $curl, $arg[$i++], $arg[$i++] );
+		//curl_setopt( $curl, CURLOPT_'method', $method );
 		if( count($header) > 0 ) curl_setopt( $curl, CURLOPT_HTTPHEADER, $header );
+		if( $method != 'GET' ){
+			curl_setopt( $curl, CURLOPT_POST, TRUE );
+			if( $t0 ) curl_setopt( $curl, CURLOPT_POSTFIELDS, $t0 );
+		}
 		$t1 = curl_exec($curl);
 		curl_close($curl);
 		return $t1 === FALSE ? curl_error($curl) : $t1;
 	}
-	static function get($url){
-		$j = func_num_args();
-		if( $j > 1 ){
-			$url = explode( '#', $url );
-			$url[0] .= strpos( $url[0], '?' ) !== FALSE ? '&' : '?';
-			for( $arg = func_get_args(), $i = 0 ; $i < $j ; ) $url[0] .= encode($arg[$i++]).'='.encode($arg[$i++]).($i < $j - 1 ? '&' : '');
-			$url = implode( '#', $url );
-		}
-		return self::curl($url);
-	}
-	static function post($url){return self::curl( $url, 'post', func_get_args() );}
-	static function delete($url){return self::curl( $url, 'post', func_get_args(), 'method', 'DELETE' );}
-	static function put($url){return self::curl( $url, 'post', func_get_args(), 'method', 'PUT' );}
+	static function get($url){return self::curl( $url, 'GET', func_get_args() );}
+	static function post($url){return self::curl( $url, 'POST', func_get_args() );}
+	static function delete($url){return self::curl( $url, 'DELETE', func_get_args() );}
+	static function put($url){return self::curl( $url, 'PUT', func_get_args() );}
 	static function ck(){
 		$arg = func_get_args();
 		$k = isset($arg[0]) ? $arg[0] === NULL ? NULL : trim($arg[0]) : NULL;
